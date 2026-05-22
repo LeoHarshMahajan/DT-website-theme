@@ -100,7 +100,7 @@ const Nav = ({ theme, onToggleTheme }) => {
     <header className={`nav ${scrolled ? "nav-scrolled" : ""}`}>
       <div className="nav-inner shell">
         <a href="#top" className="nav-brand" aria-label="Digital Triangle home">
-          <img src={`${window.DT_THEME_URL}/assets/logo.png`} alt="Digital Triangle" />
+          <img src={`${window.DT_THEME_URL}/uploads/final_DT%20white.png`} alt="Digital Triangle" />
         </a>
 
         <nav className="nav-links" aria-label="Primary">
@@ -174,7 +174,7 @@ const Nav = ({ theme, onToggleTheme }) => {
       {mobile && (
         <div className="mobile-menu">
           <div className="mobile-head shell">
-            <img src={`${window.DT_THEME_URL}/assets/logo.png`} alt="Digital Triangle" style={{ height: 28 }} />
+            <img src={`${window.DT_THEME_URL}/uploads/final_DT%20white.png`} alt="Digital Triangle" style={{ height: 28 }} />
             <button onClick={() => setMobile(false)} aria-label="Close"><Icon name="x" size={22} /></button>
           </div>
           <div className="mobile-body shell">

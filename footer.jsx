@@ -136,7 +136,7 @@ const Footer = () => {
       <div className="shell">
         <div className="footer-top">
           <div className="footer-brand">
-            <img src={`${window.DT_THEME_URL}/assets/logo.png`} alt="Digital Triangle" style={{ height: 32 }} />
+            <img src={`${window.DT_THEME_URL}/uploads/final_DT%20white.png`} alt="Digital Triangle" style={{ height: 32 }} />
             <p style={{ marginTop: 18, color: "var(--fg-2)", fontSize: 14, lineHeight: 1.55, maxWidth: "36ch" }}>
               AI-powered growth infrastructure for modern brands. Built with performance, automation,
               and intelligence at the core.
@@ -251,6 +251,7 @@ const Footer = () => {
           position: relative;
           overflow: hidden;
           padding: 8px 0 0;
+          -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 60%, transparent 100%);
           mask-image: linear-gradient(180deg, #000 0%, #000 60%, transparent 100%);
         }
         .footer-mark-text {
