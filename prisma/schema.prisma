@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
-  relationMode = "prisma"
 }
 
 // ============================================================
@@ -13,41 +12,41 @@ datasource db {
 // ============================================================
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String?
-  name          String?
-  avatar        String?
-  bio           String?
-  role          String    @default("EDITOR") // SUPER_ADMIN | ADMIN | EDITOR | VIEWER
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?
+  name      String?
+  avatar    String?
+  bio       String?
+  role      String   @default("EDITOR") // SUPER_ADMIN | ADMIN | EDITOR | VIEWER
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  accounts      Account[]
-  sessions      Session[]
-  posts         Post[]      @relation("PostAuthor")
-  comments      Comment[]   @relation("CommentAuthor")
+  accounts Account[]
+  sessions Session[]
+  posts    Post[]    @relation("PostAuthor")
+  comments Comment[] @relation("CommentAuthor")
 
   @@index([role])
   @@index([email])
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
-  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
@@ -71,32 +70,31 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-
 // ============================================================
 // CMS - BLOG & CONTENT
 // ============================================================
 
 model Post {
-  id          String    @id @default(cuid())
-  slug        String    @unique
-  title       String
-  excerpt     String?
-  content     String    @db.LongText // Rich text as HTML/JSON
-  status      String    @default("DRAFT") // DRAFT | SCHEDULED | PUBLISHED | ARCHIVED
-  featured    Boolean   @default(false)
+  id       String  @id @default(cuid())
+  slug     String  @unique
+  title    String
+  excerpt  String?
+  content  String // Rich text as HTML/JSON
+  status   String  @default("DRAFT") // DRAFT | SCHEDULED | PUBLISHED | ARCHIVED
+  featured Boolean @default(false)
 
   // SEO fields
-  metaTitle   String?
+  metaTitle       String?
   metaDescription String?
-  metaKeywords String?
-  ogImage     String?
-  canonical   String?
+  metaKeywords    String?
+  ogImage         String?
+  canonical       String?
 
   // Relations
-  authorId    String
-  author      User      @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  tags        Tag[]     @relation("PostTags")
-  comments    Comment[] @relation("PostComments")
+  authorId String
+  author   User      @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  tags     Tag[]     @relation("PostTags")
+  comments Comment[] @relation("PostComments")
 
   // Timestamps
   publishedAt DateTime?
@@ -109,30 +107,29 @@ model Post {
   @@index([publishedAt])
 }
 
-
 model Tag {
-  id        String   @id @default(cuid())
-  slug      String   @unique
-  name      String   @unique
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String  @unique
   description String?
-  color     String?  // Hex color for UI
+  color       String? // Hex color for UI
 
-  posts     Post[]   @relation("PostTags")
+  posts Post[] @relation("PostTags")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  content   String   @db.Text
-  status    String   @default("PENDING") // PENDING | APPROVED | SPAM | DELETED
+  id      String @id @default(cuid())
+  content String
+  status  String @default("PENDING") // PENDING | APPROVED | SPAM | DELETED
 
-  postId    String
-  post      Post     @relation("PostComments", fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+  post   Post   @relation("PostComments", fields: [postId], references: [id], onDelete: Cascade)
 
-  authorId  String
-  author    User     @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User   @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -142,25 +139,24 @@ model Comment {
   @@index([status])
 }
 
-
 // ============================================================
 // STATIC PAGES
 // ============================================================
 
 model Page {
-  id        String   @id @default(cuid())
-  slug      String   @unique
-  title     String
-  content   String   @db.LongText // Rich text as HTML/JSON
+  id      String @id @default(cuid())
+  slug    String @unique
+  title   String
+  content String // Rich text as HTML/JSON
 
   // SEO
-  metaTitle String?
+  metaTitle       String?
   metaDescription String?
-  ogImage   String?
+  ogImage         String?
 
-  isPublished Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([slug])
   @@index([isPublished])
@@ -171,14 +167,14 @@ model Page {
 // ============================================================
 
 model Media {
-  id        String   @id @default(cuid())
-  filename  String
-  url       String   @unique
-  alt       String?
-  size      Int      // File size in bytes
-  width     Int?     // Image dimensions
-  height    Int?
-  mimeType  String
+  id       String  @id @default(cuid())
+  filename String
+  url      String  @unique
+  alt      String?
+  size     Int // File size in bytes
+  width    Int? // Image dimensions
+  height   Int?
+  mimeType String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -191,9 +187,9 @@ model Media {
 // ============================================================
 
 model Subscriber {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  status    String   @default("ACTIVE") // ACTIVE | UNSUBSCRIBED | BOUNCED
+  id     String @id @default(cuid())
+  email  String @unique
+  status String @default("ACTIVE") // ACTIVE | UNSUBSCRIBED | BOUNCED
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -201,16 +197,15 @@ model Subscriber {
   @@index([status])
 }
 
-
 // ============================================================
 // ANALYTICS & TRACKING
 // ============================================================
 
 model PageView {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   path      String
   referer   String?
-  userAgent String?  @db.Text
+  userAgent String?
 
   createdAt DateTime @default(now())
 
@@ -223,16 +218,16 @@ model PageView {
 // ============================================================
 
 model SiteSettings {
-  id                String   @id @default(cuid())
-  siteTitle         String   @default("Digital Triangle")
-  siteDescription   String?
-  logo              String?
-  favicon           String?
-  primaryColor      String?
-  secondaryColor    String?
-  accentColor       String?
-  contactEmail      String?
-  socialLinks       String?  @db.Text // JSON stringified { twitter, linkedin, etc }
+  id              String  @id @default(cuid())
+  siteTitle       String  @default("Digital Triangle")
+  siteDescription String?
+  logo            String?
+  favicon         String?
+  primaryColor    String?
+  secondaryColor  String?
+  accentColor     String?
+  contactEmail    String?
+  socialLinks     String? // JSON stringified { twitter, linkedin, etc }
 
   updatedAt DateTime @updatedAt
 }
