@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
+  relationMode = "prisma"
 }
 
 // ============================================================
@@ -80,7 +81,7 @@ model Post {
   slug        String    @unique
   title       String
   excerpt     String?
-  content     String    // Rich text as HTML/JSON
+  content     String    @db.LongText // Rich text as HTML/JSON
   status      String    @default("DRAFT") // DRAFT | SCHEDULED | PUBLISHED | ARCHIVED
   featured    Boolean   @default(false)
 
@@ -124,7 +125,7 @@ model Tag {
 
 model Comment {
   id        String   @id @default(cuid())
-  content   String
+  content   String   @db.Text
   status    String   @default("PENDING") // PENDING | APPROVED | SPAM | DELETED
 
   postId    String
@@ -150,7 +151,7 @@ model Page {
   id        String   @id @default(cuid())
   slug      String   @unique
   title     String
-  content   String   // Rich text as HTML/JSON
+  content   String   @db.LongText // Rich text as HTML/JSON
 
   // SEO
   metaTitle String?
@@ -209,7 +210,7 @@ model PageView {
   id        String   @id @default(cuid())
   path      String
   referer   String?
-  userAgent String?
+  userAgent String?  @db.Text
 
   createdAt DateTime @default(now())
 
@@ -231,7 +232,7 @@ model SiteSettings {
   secondaryColor    String?
   accentColor       String?
   contactEmail      String?
-  socialLinks       String?  // JSON stringified { twitter, linkedin, etc }
+  socialLinks       String?  @db.Text // JSON stringified { twitter, linkedin, etc }
 
   updatedAt DateTime @updatedAt
 }
