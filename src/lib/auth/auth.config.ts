@@ -5,13 +5,11 @@
 
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db/prisma";
 import bcrypt from "bcryptjs";
 import { USER_ROLES } from "@/lib/constants";
 
 export const authConfig: NextAuthConfig = {
-  adapter: PrismaAdapter(prisma),
   providers: [
     Credentials({
       name: "Email & Password",
