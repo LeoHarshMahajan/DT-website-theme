@@ -109,6 +109,8 @@ export function RichTextEditor({
   const [imgAlt, setImgAlt] = useState('');
   const [editingImage, setEditingImage] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [sourceMode, setSourceMode] = useState(false);
+  const [sourceHtml, setSourceHtml] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -199,6 +201,24 @@ export function RichTextEditor({
     else editor.chain().focus().toggleHeading({ level }).run();
   };
 
+  const toggleSource = () => {
+    if (sourceMode) {
+      // Leaving source mode → apply edited HTML back to the visual editor
+      editor.commands.setContent(sourceHtml || '<p></p>', false);
+      onChange(editor.getHTML());
+      setSourceMode(false);
+    } else {
+      // Entering source mode → load current HTML into the textarea
+      setSourceHtml(editor.getHTML());
+      setSourceMode(true);
+    }
+  };
+
+  const onSourceChange = (html: string) => {
+    setSourceHtml(html);
+    onChange(html);
+  };
+
   return (
     <div style={{ borderRadius: '12px', border: '1px solid var(--line)', overflow: 'hidden', backgroundColor: 'var(--bg-2)' }}>
       {/* Toolbar */}
@@ -241,10 +261,29 @@ export function RichTextEditor({
         <TB onClick={() => editor.chain().focus().undo().run()} title="Undo" disabled={!editor.can().undo()}>↶</TB>
         <TB onClick={() => editor.chain().focus().redo().run()} title="Redo" disabled={!editor.can().redo()}>↷</TB>
         <TB onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()} title="Clear formatting">⌫</TB>
+
+        <Divider />
+
+        <TB onClick={toggleSource} active={sourceMode} title="Toggle HTML / text source">{'</> HTML'}</TB>
       </div>
 
-      {/* Editor */}
-      <EditorContent editor={editor} className="dt-editor" />
+      {/* Editor — visual or HTML source */}
+      {sourceMode ? (
+        <textarea
+          value={sourceHtml}
+          onChange={(e) => onSourceChange(e.target.value)}
+          spellCheck={false}
+          placeholder="Paste or write HTML / text here…"
+          style={{
+            width: '100%', minHeight: '360px', padding: '20px 24px', border: 'none',
+            outline: 'none', resize: 'vertical', backgroundColor: 'var(--bg-2)',
+            color: 'var(--fg-1)', fontFamily: 'monospace', fontSize: '0.85rem',
+            lineHeight: 1.6, boxSizing: 'border-box',
+          }}
+        />
+      ) : (
+        <EditorContent editor={editor} className="dt-editor" />
+      )}
 
       {/* Link modal */}
       {linkOpen && (
