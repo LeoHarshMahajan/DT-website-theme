@@ -19,12 +19,18 @@ export const authConfig: NextAuthConfig = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          console.log("[AUTH DEBUG] missing email or password");
           throw new Error("Invalid credentials");
         }
 
+        const email = (credentials.email as string).trim().toLowerCase();
+        console.log("[AUTH DEBUG] login attempt for:", JSON.stringify(email), "pwd length:", (credentials.password as string).length);
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+          where: { email },
         });
+
+        console.log("[AUTH DEBUG] user found:", !!user, "has password:", !!user?.password);
 
         if (!user || !user.password) {
           throw new Error("Invalid credentials");
@@ -34,6 +40,8 @@ export const authConfig: NextAuthConfig = {
           credentials.password as string,
           user.password
         );
+
+        console.log("[AUTH DEBUG] passwordMatch:", passwordMatch);
 
         if (!passwordMatch) {
           throw new Error("Invalid credentials");
