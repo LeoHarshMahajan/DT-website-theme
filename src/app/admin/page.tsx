@@ -4,6 +4,13 @@ import { useState, useEffect } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { Reveal } from '@/components/ui/Reveal';
 
+interface RecentPost {
+  id: string;
+  title: string;
+  status: string;
+  createdAt: string;
+}
+
 interface DashboardStats {
   totalPosts: number;
   publishedPosts: number;
@@ -11,6 +18,20 @@ interface DashboardStats {
   totalUsers: number;
   activeUsers: number;
   totalViews: number;
+  recentPosts: RecentPost[];
+}
+
+function timeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+  return date.toLocaleDateString();
 }
 
 export default function AdminDashboard() {
@@ -21,18 +42,16 @@ export default function AdminDashboard() {
     totalUsers: 0,
     activeUsers: 0,
     totalViews: 0,
+    recentPosts: [],
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Fetch dashboard stats from API
-    setStats({
-      totalPosts: 42,
-      publishedPosts: 38,
-      draftPosts: 4,
-      totalUsers: 156,
-      activeUsers: 42,
-      totalViews: 15324,
-    });
+    fetch('/api/admin/stats')
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data) => setStats(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const statCards: { label: string; value: number | string; icon: string; iconColor: string; borderAccent: string }[] = [
@@ -214,70 +233,67 @@ export default function AdminDashboard() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {[
-                  {
-                    title: 'Getting Started with Next.js 14',
-                    status: 'Published',
-                    date: '2 days ago',
-                  },
-                  {
-                    title: 'Building Scalable CMS Systems',
-                    status: 'Published',
-                    date: '5 days ago',
-                  },
-                  {
-                    title: 'Performance Optimization Tips',
-                    status: 'Draft',
-                    date: '1 day ago',
-                  },
-                ].map((post, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      justifyContent: 'space-between',
-                      padding: '16px',
-                      borderRadius: '10px',
-                      transition: 'all 0.3s ease',
-                      backgroundColor: 'var(--bg-2)',
-                      gap: '16px',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--bg-3)';
-                      e.currentTarget.style.transform = 'translateX(4px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--bg-2)';
-                      e.currentTarget.style.transform = 'translateX(0)';
-                    }}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontWeight: '600', marginBottom: '4px', margin: '0', color: 'var(--fg-0)', fontSize: '0.95rem' }}>
-                        {post.title}
-                      </p>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--fg-2)', margin: '4px 0 0 0' }}>
-                        {post.date}
-                      </p>
-                    </div>
-                    <span
-                      style={{
-                        padding: '4px 12px',
-                        borderRadius: '20px',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        whiteSpace: 'nowrap',
-                        backgroundColor: post.status === 'Published' ? '#10b98120' : '#f59e0b20',
-                        color: post.status === 'Published' ? '#10b981' : '#f59e0b',
-                        border: post.status === 'Published' ? '1px solid #10b98140' : '1px solid #f59e0b40',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {post.status}
-                    </span>
+                {loading ? (
+                  <p style={{ color: 'var(--fg-2)', fontSize: '0.9rem', padding: '16px' }}>Loading…</p>
+                ) : stats.recentPosts.length === 0 ? (
+                  <div style={{ padding: '24px 16px', textAlign: 'center', backgroundColor: 'var(--bg-2)', borderRadius: '10px' }}>
+                    <p style={{ color: 'var(--fg-1)', fontSize: '0.95rem', margin: '0 0 4px 0' }}>No posts yet</p>
+                    <p style={{ color: 'var(--fg-2)', fontSize: '0.85rem', margin: '0' }}>Create your first post to see it here.</p>
                   </div>
-                ))}
+                ) : (
+                  stats.recentPosts.map((post) => {
+                    const isPublished = post.status === 'PUBLISHED';
+                    return (
+                      <div
+                        key={post.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          justifyContent: 'space-between',
+                          padding: '16px',
+                          borderRadius: '10px',
+                          transition: 'all 0.3s ease',
+                          backgroundColor: 'var(--bg-2)',
+                          gap: '16px',
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--bg-3)';
+                          e.currentTarget.style.transform = 'translateX(4px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--bg-2)';
+                          e.currentTarget.style.transform = 'translateX(0)';
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontWeight: '600', marginBottom: '4px', margin: '0', color: 'var(--fg-0)', fontSize: '0.95rem' }}>
+                            {post.title}
+                          </p>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--fg-2)', margin: '4px 0 0 0' }}>
+                            {timeAgo(post.createdAt)}
+                          </p>
+                        </div>
+                        <span
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: '20px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            whiteSpace: 'nowrap',
+                            backgroundColor: isPublished ? 'rgba(75,107,255,0.15)' : 'rgba(192,38,211,0.15)',
+                            color: isPublished ? 'var(--brand-blue)' : 'var(--brand-magenta)',
+                            border: isPublished ? '1px solid rgba(75,107,255,0.35)' : '1px solid rgba(192,38,211,0.35)',
+                            flexShrink: 0,
+                            textTransform: 'capitalize',
+                          }}
+                        >
+                          {post.status.toLowerCase()}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
           </div>
         </Reveal>
@@ -424,7 +440,11 @@ export default function AdminDashboard() {
           >
             <div style={{ textAlign: 'center' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '16px', color: 'var(--fg-0)' }}>Views Over Time</h2>
-              <p style={{ color: 'var(--fg-2)', fontSize: '0.95rem' }}>Chart will display here (TODO: integrate with chart library)</p>
+              <p style={{ color: 'var(--fg-2)', fontSize: '0.95rem' }}>
+                {stats.totalViews === 0
+                  ? 'No page-view data yet — analytics will appear here as traffic comes in.'
+                  : `${stats.totalViews.toLocaleString()} total views tracked.`}
+              </p>
             </div>
           </div>
         </Reveal>
