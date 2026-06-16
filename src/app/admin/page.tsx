@@ -60,42 +60,42 @@ export default function AdminDashboard() {
       value: stats.totalPosts,
       icon: 'file-text',
       iconColor: '#4b6bff',
-      borderAccent: 'rgba(75, 107, 255, 0.2)',
+      borderAccent: 'rgba(75, 107, 255, 0.35)',
     },
     {
       label: 'Published',
       value: stats.publishedPosts,
       icon: 'check-circle',
-      iconColor: '#10b981',
-      borderAccent: 'rgba(16, 185, 129, 0.2)',
+      iconColor: '#8b5cf6',
+      borderAccent: 'rgba(139, 92, 246, 0.35)',
     },
     {
       label: 'Drafts',
       value: stats.draftPosts,
       icon: 'clock',
-      iconColor: '#f59e0b',
-      borderAccent: 'rgba(245, 158, 11, 0.2)',
+      iconColor: '#c026d3',
+      borderAccent: 'rgba(192, 38, 211, 0.35)',
     },
     {
       label: 'Total Users',
       value: stats.totalUsers,
       icon: 'users',
-      iconColor: '#a855f7',
-      borderAccent: 'rgba(168, 85, 247, 0.2)',
+      iconColor: '#4b6bff',
+      borderAccent: 'rgba(75, 107, 255, 0.35)',
     },
     {
       label: 'Active Users',
       value: stats.activeUsers,
       icon: 'activity',
-      iconColor: '#10b981',
-      borderAccent: 'rgba(16, 185, 129, 0.2)',
+      iconColor: '#8b5cf6',
+      borderAccent: 'rgba(139, 92, 246, 0.35)',
     },
     {
       label: 'Total Views',
       value: stats.totalViews.toLocaleString(),
       icon: 'eye',
-      iconColor: '#ec4899',
-      borderAccent: 'rgba(236, 72, 153, 0.2)',
+      iconColor: '#c026d3',
+      borderAccent: 'rgba(192, 38, 211, 0.35)',
     },
   ];
 
@@ -214,18 +214,18 @@ export default function AdminDashboard() {
                     fontWeight: '500',
                     transition: 'all 0.3s ease',
                     color: 'var(--brand-blue)',
-                    backgroundColor: 'var(--brand-blue)12',
-                    border: '1px solid var(--brand-blue)30',
+                    backgroundColor: 'rgba(75,107,255,0.08)',
+                    border: '1px solid rgba(75,107,255,0.25)',
                     textDecoration: 'none',
                     cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--brand-blue)20';
-                    e.currentTarget.style.borderColor = 'var(--brand-blue)50';
+                    e.currentTarget.style.backgroundColor = 'rgba(75,107,255,0.16)';
+                    e.currentTarget.style.borderColor = 'rgba(75,107,255,0.45)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--brand-blue)12';
-                    e.currentTarget.style.borderColor = 'var(--brand-blue)30';
+                    e.currentTarget.style.backgroundColor = 'rgba(75,107,255,0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(75,107,255,0.25)';
                   }}
                 >
                   View all →
@@ -322,8 +322,8 @@ export default function AdminDashboard() {
                     gap: '16px',
                     padding: '16px',
                     borderRadius: '12px',
-                    border: '2px solid var(--brand-blue)25',
-                    backgroundColor: 'var(--brand-blue)08',
+                    border: '2px solid rgba(75,107,255,0.25)',
+                    backgroundColor: 'rgba(75,107,255,0.05)',
                     color: 'var(--fg-0)',
                     fontWeight: '500',
                     fontSize: '0.95rem',
@@ -333,12 +333,12 @@ export default function AdminDashboard() {
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = 'var(--brand-blue)';
-                    e.currentTarget.style.backgroundColor = 'var(--brand-blue)15';
+                    e.currentTarget.style.backgroundColor = 'rgba(75,107,255,0.12)';
                     e.currentTarget.style.transform = 'translateX(4px)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--brand-blue)25';
-                    e.currentTarget.style.backgroundColor = 'var(--brand-blue)08';
+                    e.currentTarget.style.borderColor = 'rgba(75,107,255,0.25)';
+                    e.currentTarget.style.backgroundColor = 'rgba(75,107,255,0.05)';
                     e.currentTarget.style.transform = 'translateX(0)';
                   }}
                 >
@@ -357,8 +357,8 @@ export default function AdminDashboard() {
                     gap: '16px',
                     padding: '16px',
                     borderRadius: '12px',
-                    border: '2px solid #a855f720',
-                    backgroundColor: '#a855f708',
+                    border: '2px solid rgba(139,92,246,0.25)',
+                    backgroundColor: 'rgba(139,92,246,0.05)',
                     color: 'var(--fg-0)',
                     fontWeight: '500',
                     fontSize: '0.95rem',
@@ -367,17 +367,17 @@ export default function AdminDashboard() {
                     cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#a855f7';
-                    e.currentTarget.style.backgroundColor = '#a855f715';
+                    e.currentTarget.style.borderColor = 'var(--brand-violet)';
+                    e.currentTarget.style.backgroundColor = 'rgba(139,92,246,0.12)';
                     e.currentTarget.style.transform = 'translateX(4px)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#a855f720';
-                    e.currentTarget.style.backgroundColor = '#a855f708';
+                    e.currentTarget.style.borderColor = 'rgba(139,92,246,0.25)';
+                    e.currentTarget.style.backgroundColor = 'rgba(139,92,246,0.05)';
                     e.currentTarget.style.transform = 'translateX(0)';
                   }}
                 >
-                  <Icon name="users" size="md" style={{ color: '#a855f7', flexShrink: 0 }} />
+                  <Icon name="users" size="md" style={{ color: 'var(--brand-violet)', flexShrink: 0 }} />
                   <div>
                     <p style={{ fontSize: '0.95rem', fontWeight: '500', margin: '0' }}>Manage Users</p>
                     <p style={{ fontSize: '0.85rem', color: 'var(--fg-2)', margin: '2px 0 0 0' }}>View & edit users</p>
@@ -392,8 +392,8 @@ export default function AdminDashboard() {
                     gap: '16px',
                     padding: '16px',
                     borderRadius: '12px',
-                    border: '2px solid #ec489320',
-                    backgroundColor: '#ec489308',
+                    border: '2px solid rgba(192,38,211,0.25)',
+                    backgroundColor: 'rgba(192,38,211,0.05)',
                     color: 'var(--fg-0)',
                     fontWeight: '500',
                     fontSize: '0.95rem',
@@ -402,17 +402,17 @@ export default function AdminDashboard() {
                     cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#ec4893';
-                    e.currentTarget.style.backgroundColor = '#ec489315';
+                    e.currentTarget.style.borderColor = 'var(--brand-magenta)';
+                    e.currentTarget.style.backgroundColor = 'rgba(192,38,211,0.12)';
                     e.currentTarget.style.transform = 'translateX(4px)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#ec489320';
-                    e.currentTarget.style.backgroundColor = '#ec489308';
+                    e.currentTarget.style.borderColor = 'rgba(192,38,211,0.25)';
+                    e.currentTarget.style.backgroundColor = 'rgba(192,38,211,0.05)';
                     e.currentTarget.style.transform = 'translateX(0)';
                   }}
                 >
-                  <Icon name="settings" size="md" style={{ color: '#ec4893', flexShrink: 0 }} />
+                  <Icon name="settings" size="md" style={{ color: 'var(--brand-magenta)', flexShrink: 0 }} />
                   <div>
                     <p style={{ fontSize: '0.95rem', fontWeight: '500', margin: '0' }}>Settings</p>
                     <p style={{ fontSize: '0.85rem', color: 'var(--fg-2)', margin: '2px 0 0 0' }}>Configure site</p>
