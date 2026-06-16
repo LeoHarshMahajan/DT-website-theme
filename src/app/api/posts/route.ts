@@ -1,96 +1,112 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/db/prisma';
 
-const createPostSchema = z.object({
-  title: z.string().min(3),
-  slug: z.string().min(3),
-  description: z.string().min(10),
-  content: z.string().min(50),
-  authorId: z.string(),
-  published: z.boolean().default(false),
-  tags: z.array(z.string()).optional(),
-});
+export const dynamic = 'force-dynamic';
 
-// GET /api/posts - List all posts with pagination
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const published = searchParams.get('published') === 'true';
-
-    // TODO: Implement with Prisma
-    // const posts = await prisma.post.findMany({
-    //   where: { published: published ? true : undefined },
-    //   skip: (page - 1) * limit,
-    //   take: limit,
-    //   include: { author: true, tags: true },
-    //   orderBy: { createdAt: 'desc' },
-    // });
-
-    return NextResponse.json(
-      {
-        message: 'Blog listing functionality coming soon',
-        pagination: {
-          page,
-          limit,
-          total: 0,
-        },
-        posts: [],
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    return NextResponse.json(
-      { message: 'An error occurred' },
-      { status: 500 }
-    );
-  }
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-// POST /api/posts - Create a new post
+type PostWithRelations = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  content: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  author: { name: string | null } | null;
+  tags: { name: string }[];
+};
+
+function shape(p: PostWithRelations) {
+  return {
+    id: p.id,
+    title: p.title,
+    slug: p.slug,
+    description: p.excerpt ?? '',
+    content: p.content,
+    tags: p.tags.map((t) => t.name).join(', '),
+    published: p.status === 'PUBLISHED',
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+    author: { name: p.author?.name ?? 'Unknown' },
+  };
+}
+
+// GET /api/posts — authenticated: all posts; public: published only
+export async function GET() {
+  const session = await auth();
+  const where = session?.user ? {} : { status: 'PUBLISHED' };
+
+  const posts = await prisma.post.findMany({
+    where,
+    include: { author: { select: { name: true } }, tags: { select: { name: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return NextResponse.json({ posts: posts.map(shape) });
+}
+
+const createPostSchema = z.object({
+  title: z.string().min(1),
+  slug: z.string().min(1),
+  description: z.string().optional().default(''),
+  content: z.string().optional().default(''),
+  published: z.boolean().optional().default(false),
+  tags: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+function parseTags(tags: string | string[] | undefined): string[] {
+  if (!tags) return [];
+  const arr = Array.isArray(tags) ? tags : tags.split(',');
+  return arr.map((t) => t.trim()).filter(Boolean);
+}
+
+// POST /api/posts — create a post
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  try {
-    const body = await request.json();
-    const { title, slug, description, content, authorId, published, tags } =
-      createPostSchema.parse(body);
-
-    // TODO: Implement with Prisma
-    // 1. Check if slug already exists
-    // 2. Create post with author and tags
-    // 3. Return created post with ID
-
-    return NextResponse.json(
-      {
-        message: 'Post creation functionality coming soon',
-        post: {
-          id: 'temp-id',
-          title,
-          slug,
-          description,
-          published,
-          createdAt: new Date().toISOString(),
-        },
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: 'Invalid input', errors: error.errors },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      { message: 'An error occurred' },
-      { status: 500 }
-    );
+  const body = await request.json();
+  const parsed = createPostSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid input', details: parsed.error.errors }, { status: 400 });
   }
+
+  const { title, description, content, published } = parsed.data;
+  const slug = slugify(parsed.data.slug || title);
+
+  const existing = await prisma.post.findUnique({ where: { slug } });
+  if (existing) {
+    return NextResponse.json({ error: 'A post with that slug already exists' }, { status: 409 });
+  }
+
+  const tagNames = parseTags(parsed.data.tags);
+  const tagConnect = await Promise.all(
+    tagNames.map((name) =>
+      prisma.tag.upsert({ where: { slug: slugify(name) }, update: {}, create: { slug: slugify(name), name } })
+    )
+  );
+
+  const post = await prisma.post.create({
+    data: {
+      title,
+      slug,
+      excerpt: description,
+      content,
+      status: published ? 'PUBLISHED' : 'DRAFT',
+      publishedAt: published ? new Date() : null,
+      authorId: (session.user as { id: string }).id,
+      tags: { connect: tagConnect.map((t) => ({ id: t.id })) },
+    },
+    include: { author: { select: { name: true } }, tags: { select: { name: true } } },
+  });
+
+  return NextResponse.json({ post: shape(post) }, { status: 201 });
 }

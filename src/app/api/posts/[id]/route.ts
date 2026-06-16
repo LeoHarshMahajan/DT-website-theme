@@ -1,119 +1,99 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/db/prisma';
 
-const updatePostSchema = z.object({
-  title: z.string().min(3).optional(),
-  slug: z.string().min(3).optional(),
-  description: z.string().min(10).optional(),
-  content: z.string().min(50).optional(),
-  published: z.boolean().optional(),
-  tags: z.array(z.string()).optional(),
-});
+export const dynamic = 'force-dynamic';
 
-type RouteParams = {
-  params: Promise<{ id: string }>;
-};
+type RouteParams = { params: Promise<{ id: string }> };
 
-// GET /api/posts/[id] - Get a single post
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
-    const { id } = await params;
-
-    // TODO: Implement with Prisma
-    // const post = await prisma.post.findUnique({
-    //   where: { id },
-    //   include: { author: true, tags: true },
-    // });
-    //
-    // if (!post) {
-    //   return NextResponse.json(
-    //     { message: 'Post not found' },
-    //     { status: 404 }
-    //   );
-    // }
-
-    return NextResponse.json(
-      {
-        message: 'Post retrieval functionality coming soon',
-        post: null,
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    return NextResponse.json(
-      { message: 'An error occurred' },
-      { status: 500 }
-    );
-  }
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-// PATCH /api/posts/[id] - Update a post
+function parseTags(tags: string | string[] | undefined): string[] {
+  if (tags === undefined) return [];
+  const arr = Array.isArray(tags) ? tags : tags.split(',');
+  return arr.map((t) => t.trim()).filter(Boolean);
+}
+
+// GET /api/posts/[id]
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
+  const post = await prisma.post.findUnique({
+    where: { id },
+    include: { author: { select: { name: true } }, tags: { select: { name: true } } },
+  });
+  if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+  return NextResponse.json({ post });
+}
+
+const updateSchema = z.object({
+  title: z.string().min(1).optional(),
+  slug: z.string().min(1).optional(),
+  description: z.string().optional(),
+  content: z.string().optional(),
+  published: z.boolean().optional(),
+  tags: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+// PATCH /api/posts/[id]
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  try {
-    const { id } = await params;
-    const body = await request.json();
-    const data = updatePostSchema.parse(body);
-
-    // TODO: Implement with Prisma
-    // 1. Check post exists
-    // 2. Check authorization (author or admin)
-    // 3. Update post with new data
-    // 4. Return updated post
-
-    return NextResponse.json(
-      {
-        message: 'Post update functionality coming soon',
-        post: null,
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: 'Invalid input', errors: error.errors },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      { message: 'An error occurred' },
-      { status: 500 }
-    );
+  const { id } = await params;
+  const body = await request.json();
+  const parsed = updateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
+
+  const existing = await prisma.post.findUnique({ where: { id } });
+  if (!existing) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+
+  const data: Record<string, unknown> = {};
+  if (parsed.data.title !== undefined) data.title = parsed.data.title;
+  if (parsed.data.slug !== undefined) data.slug = slugify(parsed.data.slug);
+  if (parsed.data.description !== undefined) data.excerpt = parsed.data.description;
+  if (parsed.data.content !== undefined) data.content = parsed.data.content;
+  if (parsed.data.published !== undefined) {
+    data.status = parsed.data.published ? 'PUBLISHED' : 'DRAFT';
+    if (parsed.data.published && !existing.publishedAt) data.publishedAt = new Date();
+  }
+
+  if (parsed.data.tags !== undefined) {
+    const tagNames = parseTags(parsed.data.tags);
+    const tags = await Promise.all(
+      tagNames.map((name) =>
+        prisma.tag.upsert({ where: { slug: slugify(name) }, update: {}, create: { slug: slugify(name), name } })
+      )
+    );
+    data.tags = { set: tags.map((t) => ({ id: t.id })) };
+  }
+
+  const post = await prisma.post.update({
+    where: { id },
+    data,
+    include: { author: { select: { name: true } }, tags: { select: { name: true } } },
+  });
+
+  return NextResponse.json({ post });
 }
 
-// DELETE /api/posts/[id] - Delete a post
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+// DELETE /api/posts/[id]
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  try {
-    const { id } = await params;
+  const { id } = await params;
+  const existing = await prisma.post.findUnique({ where: { id } });
+  if (!existing) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
 
-    // TODO: Implement with Prisma
-    // 1. Check post exists
-    // 2. Check authorization (author or admin)
-    // 3. Delete post
-    // 4. Return success
-
-    return NextResponse.json(
-      {
-        message: 'Post deletion functionality coming soon',
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    return NextResponse.json(
-      { message: 'An error occurred' },
-      { status: 500 }
-    );
-  }
+  await prisma.post.delete({ where: { id } });
+  return NextResponse.json({ success: true });
 }

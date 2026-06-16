@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
@@ -19,45 +19,6 @@ interface Post {
 }
 
 type ViewMode = 'list' | 'edit' | 'create';
-
-const MOCK_POSTS: Post[] = [
-  {
-    id: '1',
-    title: 'Getting Started with Next.js 14',
-    slug: 'getting-started-nextjs-14',
-    description: 'Learn the fundamentals of Next.js 14 with App Router.',
-    content: '',
-    tags: 'nextjs, react, tutorial',
-    published: true,
-    createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-    author: { name: 'Sarah Chen' },
-  },
-  {
-    id: '2',
-    title: 'Building Scalable CMS Systems',
-    slug: 'scalable-cms-systems',
-    description: 'Best practices for designing headless CMS architectures.',
-    content: '',
-    tags: 'cms, architecture, headless',
-    published: true,
-    createdAt: new Date(Date.now() - 14 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 14 * 86400000).toISOString(),
-    author: { name: 'Alex Rodriguez' },
-  },
-  {
-    id: '3',
-    title: 'Performance Optimization Tips',
-    slug: 'performance-optimization-tips',
-    description: 'Essential performance optimization strategies for modern web apps.',
-    content: '',
-    tags: 'performance, optimization, web',
-    published: false,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    author: { name: 'Jordan Smith' },
-  },
-];
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -234,7 +195,7 @@ function PostForm({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div>
                 <p style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--fg-0)', margin: 0 }}>Status</p>
-                <p style={{ fontSize: '0.8rem', color: form.published ? '#10b981' : 'var(--fg-3)', margin: '2px 0 0 0' }}>
+                <p style={{ fontSize: '0.8rem', color: form.published ? 'var(--brand-blue)' : 'var(--fg-3)', margin: '2px 0 0 0' }}>
                   {form.published ? '● Published' : '○ Draft'}
                 </p>
               </div>
@@ -242,7 +203,7 @@ function PostForm({
                 onClick={() => set('published', !form.published)}
                 style={{
                   width: '44px', height: '24px', borderRadius: '12px', border: 'none',
-                  backgroundColor: form.published ? '#10b981' : 'var(--bg-3)',
+                  backgroundColor: form.published ? 'var(--brand-blue)' : 'var(--bg-3)',
                   cursor: 'pointer', transition: 'background-color 0.3s', position: 'relative',
                 }}
               >
@@ -348,9 +309,21 @@ function PostForm({
 // ─── Posts List ───────────────────────────────────────────────────────────────
 export default function AdminPostsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
+
+  const loadPosts = () => {
+    setLoading(true);
+    fetch('/api/posts')
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data) => setPosts(data.posts ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(loadPosts, []);
 
   const filtered = posts.filter((p) => {
     if (filter === 'published') return p.published;
@@ -358,35 +331,46 @@ export default function AdminPostsPage() {
     return true;
   });
 
-  const handleSave = (data: Partial<Post>) => {
+  const handleSave = async (data: Partial<Post>) => {
     if (editingPost) {
-      setPosts((ps) => ps.map((p) => (p.id === editingPost.id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p)));
+      await fetch(`/api/posts/${editingPost.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
     } else {
-      const np: Post = {
-        id: Math.random().toString(36).slice(2),
-        title: data.title ?? '',
-        slug: data.slug ?? '',
-        description: data.description ?? '',
-        content: data.content ?? '',
-        tags: data.tags ?? '',
-        published: data.published ?? false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        author: { name: 'Admin User' },
-      };
-      setPosts((ps) => [np, ...ps]);
+      const res = await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Failed to save post.');
+        return;
+      }
     }
     setViewMode('list');
     setEditingPost(null);
+    loadPosts();
   };
 
   const handleEdit = (post: Post) => { setEditingPost(post); setViewMode('edit'); };
   const handleCreate = () => { setEditingPost(null); setViewMode('create'); };
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this post permanently?')) setPosts((ps) => ps.filter((p) => p.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this post permanently?')) return;
+    await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+    loadPosts();
   };
-  const handleToggle = (id: string) => {
-    setPosts((ps) => ps.map((p) => p.id === id ? { ...p, published: !p.published, updatedAt: new Date().toISOString() } : p));
+  const handleToggle = async (id: string) => {
+    const post = posts.find((p) => p.id === id);
+    if (!post) return;
+    setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, published: !p.published } : p)));
+    await fetch(`/api/posts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ published: !post.published }),
+    }).catch(() => loadPosts());
   };
 
   if (viewMode === 'create' || viewMode === 'edit') {
@@ -451,7 +435,9 @@ export default function AdminPostsPage() {
 
       {/* Table card */}
       <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '14px', border: '1px solid var(--line)', overflow: 'hidden' }}>
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div style={{ padding: '64px 32px', textAlign: 'center', color: 'var(--fg-2)' }}>Loading posts…</div>
+        ) : filtered.length === 0 ? (
           <div style={{ padding: '64px 32px', textAlign: 'center' }}>
             <Icon name="file-text" size="lg" style={{ color: 'var(--fg-3)', marginBottom: '16px' }} />
             <p style={{ color: 'var(--fg-1)', marginBottom: '20px' }}>No posts found</p>
@@ -520,15 +506,15 @@ export default function AdminPostsPage() {
                         padding: '5px 12px', borderRadius: '20px', border: 'none',
                         cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600',
                         transition: 'all 0.2s',
-                        backgroundColor: post.published ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)',
-                        color: post.published ? '#10b981' : '#f59e0b',
+                        backgroundColor: post.published ? 'rgba(75,107,255,0.15)' : 'rgba(192,38,211,0.15)',
+                        color: post.published ? 'var(--brand-blue)' : 'var(--brand-magenta)',
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
                       onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                     >
                       <span style={{
                         width: '6px', height: '6px', borderRadius: '50%',
-                        backgroundColor: post.published ? '#10b981' : '#f59e0b',
+                        backgroundColor: post.published ? 'var(--brand-blue)' : 'var(--brand-magenta)',
                       }} />
                       {post.published ? 'Published' : 'Draft'}
                     </button>

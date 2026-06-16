@@ -54,13 +54,14 @@ export default function AdminDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const statCards: { label: string; value: number | string; icon: string; iconColor: string; borderAccent: string }[] = [
+  const statCards: { label: string; value: number | string; icon: string; iconColor: string; borderAccent: string; href: string }[] = [
     {
       label: 'Total Posts',
       value: stats.totalPosts,
       icon: 'file-text',
       iconColor: '#4b6bff',
       borderAccent: 'rgba(75, 107, 255, 0.35)',
+      href: '/admin/posts',
     },
     {
       label: 'Published',
@@ -68,6 +69,7 @@ export default function AdminDashboard() {
       icon: 'check-circle',
       iconColor: '#8b5cf6',
       borderAccent: 'rgba(139, 92, 246, 0.35)',
+      href: '/admin/posts',
     },
     {
       label: 'Drafts',
@@ -75,6 +77,7 @@ export default function AdminDashboard() {
       icon: 'clock',
       iconColor: '#c026d3',
       borderAccent: 'rgba(192, 38, 211, 0.35)',
+      href: '/admin/posts',
     },
     {
       label: 'Total Users',
@@ -82,6 +85,7 @@ export default function AdminDashboard() {
       icon: 'users',
       iconColor: '#4b6bff',
       borderAccent: 'rgba(75, 107, 255, 0.35)',
+      href: '/admin/users',
     },
     {
       label: 'Active Users',
@@ -89,6 +93,7 @@ export default function AdminDashboard() {
       icon: 'activity',
       iconColor: '#8b5cf6',
       borderAccent: 'rgba(139, 92, 246, 0.35)',
+      href: '/admin/users',
     },
     {
       label: 'Total Views',
@@ -96,6 +101,7 @@ export default function AdminDashboard() {
       icon: 'eye',
       iconColor: '#c026d3',
       borderAccent: 'rgba(192, 38, 211, 0.35)',
+      href: '/admin/settings',
     },
   ];
 
@@ -125,8 +131,9 @@ export default function AdminDashboard() {
         <Reveal direction="up" delay={0.1}>
           <div className="stats-grid" style={{ display: 'grid', gap: '24px', width: '100%' }}>
           {statCards.map((card, index) => (
-            <div
+            <a
               key={card.label}
+              href={card.href}
               style={{
                 backgroundColor: 'var(--bg-2)',
                 border: '1px solid var(--line)',
@@ -137,6 +144,7 @@ export default function AdminDashboard() {
                 justifyContent: 'space-between',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
+                textDecoration: 'none',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = card.borderAccent;
@@ -181,7 +189,7 @@ export default function AdminDashboard() {
                   <Icon name={card.icon as any} size="lg" style={{ color: card.iconColor }} />
                 </div>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </Reveal>
