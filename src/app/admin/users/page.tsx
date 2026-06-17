@@ -116,62 +116,60 @@ export default function AdminUsersPage() {
 
       {/* Invite Modal */}
       {isInviting && (
-        <Reveal direction="up">
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="rounded-lg p-6 max-w-md w-full border" style={{ backgroundColor: 'var(--bg-1)', borderColor: 'var(--line)' }}>
-              <h2 className="h-md mb-4" style={{ color: 'var(--fg-0)' }}>Invite User</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="rounded-lg p-6 max-w-md w-full border" style={{ backgroundColor: 'var(--bg-1)', borderColor: 'var(--line)' }}>
+            <h2 className="h-md mb-4" style={{ color: 'var(--fg-0)' }}>Invite User</h2>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--fg-0)' }}>Email</label>
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="user@example.com"
-                    className="w-full px-4 py-2 rounded-lg border text-sm focus:outline-none transition-colors"
-                    style={{
-                      borderColor: 'var(--line)',
-                      backgroundColor: 'var(--bg-2)',
-                      color: 'var(--fg-0)',
-                    }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--fg-0)' }}>Role</label>
-                  <select
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value as Exclude<RoleType, 'SUPER_ADMIN'>)}
-                    className="w-full px-4 py-2 rounded-lg border text-sm focus:outline-none transition-colors"
-                    style={{
-                      borderColor: 'var(--line)',
-                      backgroundColor: 'var(--bg-2)',
-                      color: 'var(--fg-0)',
-                    }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
-                  >
-                    <option value="VIEWER">Viewer</option>
-                    <option value="EDITOR">Editor</option>
-                    <option value="ADMIN">Admin</option>
-                  </select>
-                </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--fg-0)' }}>Email</label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  className="w-full px-4 py-2 rounded-lg border text-sm focus:outline-none transition-colors"
+                  style={{
+                    borderColor: 'var(--line)',
+                    backgroundColor: 'var(--bg-2)',
+                    color: 'var(--fg-0)',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
+                />
               </div>
 
-              <div className="flex gap-4 mt-6">
-                <button onClick={handleInvite} disabled={busy} className="flex-1 btn btn-primary">
-                  {busy ? 'Adding…' : 'Add User'}
-                </button>
-                <button onClick={() => setIsInviting(false)} className="flex-1 btn btn-secondary">
-                  Cancel
-                </button>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--fg-0)' }}>Role</label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as Exclude<RoleType, 'SUPER_ADMIN'>)}
+                  className="w-full px-4 py-2 rounded-lg border text-sm focus:outline-none transition-colors"
+                  style={{
+                    borderColor: 'var(--line)',
+                    backgroundColor: 'var(--bg-2)',
+                    color: 'var(--fg-0)',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
+                >
+                  <option value="VIEWER">Viewer</option>
+                  <option value="EDITOR">Editor</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
               </div>
             </div>
+
+            <div className="flex gap-4 mt-6">
+              <button onClick={handleInvite} disabled={busy} className="flex-1 btn btn-primary">
+                {busy ? 'Adding…' : 'Add User'}
+              </button>
+              <button onClick={() => setIsInviting(false)} className="flex-1 btn btn-secondary">
+                Cancel
+              </button>
+            </div>
           </div>
-        </Reveal>
+        </div>
       )}
 
       <Reveal direction="up" delay={0.1}>
