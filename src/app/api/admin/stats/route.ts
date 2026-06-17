@@ -17,6 +17,8 @@ export async function GET() {
     totalUsers,
     activeUsers,
     totalViews,
+    totalLeads,
+    newLeads,
     recentPosts,
   ] = await Promise.all([
     prisma.post.count(),
@@ -25,6 +27,8 @@ export async function GET() {
     prisma.user.count(),
     prisma.user.count({ where: { isActive: true } }),
     prisma.pageView.count(),
+    prisma.lead.count(),
+    prisma.lead.count({ where: { status: 'NEW' } }),
     prisma.post.findMany({
       orderBy: { createdAt: 'desc' },
       take: 5,
@@ -39,6 +43,8 @@ export async function GET() {
     totalUsers,
     activeUsers,
     totalViews,
+    totalLeads,
+    newLeads,
     recentPosts,
   });
 }

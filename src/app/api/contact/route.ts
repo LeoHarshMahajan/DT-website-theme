@@ -25,6 +25,26 @@ export async function POST(request: NextRequest) {
 
     const { name, email, company, phone, budget, services, message } = data.data;
 
+    // ── Persist to DB so it shows in the admin Leads dashboard ───────────────
+    try {
+      const { prisma } = await import('@/lib/db/prisma');
+      await prisma.lead.create({
+        data: {
+          type: 'CONTACT',
+          name,
+          email,
+          company,
+          phone,
+          budget,
+          services: services?.length ? services.join(', ') : undefined,
+          message,
+          source: '/contact',
+        },
+      });
+    } catch (dbErr) {
+      console.warn('[contact] DB unavailable, lead not persisted:', dbErr);
+    }
+
     // ── Send via Resend (email service) ──────────────────────────────────────
     // Requires RESEND_API_KEY in .env — if not set, log and return success
     const resendKey = process.env.RESEND_API_KEY;

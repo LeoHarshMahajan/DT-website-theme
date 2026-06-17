@@ -232,3 +232,31 @@ model SiteSettings {
 
   updatedAt DateTime @updatedAt
 }
+
+// ============================================================
+// LEADS / FORM SUBMISSIONS
+// ============================================================
+
+model Lead {
+  id       String  @id @default(cuid())
+  type     String  @default("CONTACT") // CONTACT | CONSULTATION | AUDIT
+  name     String
+  email    String
+  phone    String?
+  company  String?
+  website  String?
+  budget   String?
+  services String? // comma-separated list
+  goals    String? // comma-separated list (consultation)
+  slot     String? // preferred time slot (consultation)
+  message  String? // message / challenge text
+  status   String  @default("NEW") // NEW | CONTACTED | QUALIFIED | CLOSED | SPAM
+  source   String? // page path the lead came from
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}

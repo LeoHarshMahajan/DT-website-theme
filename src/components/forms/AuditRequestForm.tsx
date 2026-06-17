@@ -73,8 +73,28 @@ export function AuditRequestForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('sending');
-    await new Promise(r => setTimeout(r, 1400));
-    setStatus('success');
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'AUDIT',
+          name: form.name,
+          email: form.email,
+          company: form.company,
+          website: form.website,
+          phone: form.phone,
+          budget: form.budget,
+          message: form.challenge,
+          source: '/free-growth-audit',
+        }),
+      });
+      if (!res.ok) throw new Error('failed');
+      setStatus('success');
+    } catch {
+      setStatus('idle');
+      alert('Something went wrong. Please try again.');
+    }
   };
 
   return (

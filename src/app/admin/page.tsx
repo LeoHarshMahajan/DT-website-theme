@@ -18,6 +18,8 @@ interface DashboardStats {
   totalUsers: number;
   activeUsers: number;
   totalViews: number;
+  totalLeads: number;
+  newLeads: number;
   recentPosts: RecentPost[];
 }
 
@@ -42,6 +44,8 @@ export default function AdminDashboard() {
     totalUsers: 0,
     activeUsers: 0,
     totalViews: 0,
+    totalLeads: 0,
+    newLeads: 0,
     recentPosts: [],
   });
   const [loading, setLoading] = useState(true);
@@ -56,11 +60,27 @@ export default function AdminDashboard() {
 
   const statCards: { label: string; value: number | string; icon: string; iconColor: string; borderAccent: string; href: string }[] = [
     {
+      label: 'New Leads',
+      value: stats.newLeads,
+      icon: 'target',
+      iconColor: '#4b6bff',
+      borderAccent: 'rgba(75, 107, 255, 0.35)',
+      href: '/admin/leads',
+    },
+    {
+      label: 'Total Leads',
+      value: stats.totalLeads,
+      icon: 'activity',
+      iconColor: '#8b5cf6',
+      borderAccent: 'rgba(139, 92, 246, 0.35)',
+      href: '/admin/leads',
+    },
+    {
       label: 'Total Posts',
       value: stats.totalPosts,
       icon: 'file-text',
-      iconColor: '#4b6bff',
-      borderAccent: 'rgba(75, 107, 255, 0.35)',
+      iconColor: '#c026d3',
+      borderAccent: 'rgba(192, 38, 211, 0.35)',
       href: '/admin/posts',
     },
     {
