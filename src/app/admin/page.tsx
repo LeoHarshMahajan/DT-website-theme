@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
-import { Reveal } from '@/components/ui/Reveal';
 
 interface RecentPost {
   id: string;
@@ -24,465 +24,291 @@ interface DashboardStats {
 }
 
 function timeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
   if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
-  return date.toLocaleDateString();
+  const m = Math.floor(seconds / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? '1d ago' : `${d}d ago`;
+}
+
+function Skeleton({ w = '100%', h = '16px' }: { w?: string; h?: string }) {
+  return (
+    <div style={{
+      width: w, height: h, borderRadius: '6px',
+      background: 'linear-gradient(90deg, var(--bg-2) 25%, var(--bg-3) 50%, var(--bg-2) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'shimmer 1.5s infinite',
+    }} />
+  );
+}
+
+interface StatCard {
+  label: string;
+  value: number | string;
+  sub?: string;
+  icon: string;
+  accent: string;
+  href: string;
 }
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalPosts: 0,
-    publishedPosts: 0,
-    draftPosts: 0,
-    totalUsers: 0,
-    activeUsers: 0,
-    totalViews: 0,
-    totalLeads: 0,
-    newLeads: 0,
-    recentPosts: [],
-  });
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/admin/stats')
-      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-      .then((data) => setStats(data))
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then(setStats)
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const statCards: { label: string; value: number | string; icon: string; iconColor: string; borderAccent: string; href: string }[] = [
-    {
-      label: 'New Leads',
-      value: stats.newLeads,
-      icon: 'target',
-      iconColor: '#4b6bff',
-      borderAccent: 'rgba(75, 107, 255, 0.35)',
-      href: '/admin/leads',
-    },
-    {
-      label: 'Total Leads',
-      value: stats.totalLeads,
-      icon: 'activity',
-      iconColor: '#8b5cf6',
-      borderAccent: 'rgba(139, 92, 246, 0.35)',
-      href: '/admin/leads',
-    },
-    {
-      label: 'Total Posts',
-      value: stats.totalPosts,
-      icon: 'file-text',
-      iconColor: '#c026d3',
-      borderAccent: 'rgba(192, 38, 211, 0.35)',
-      href: '/admin/posts',
-    },
-    {
-      label: 'Published',
-      value: stats.publishedPosts,
-      icon: 'check-circle',
-      iconColor: '#8b5cf6',
-      borderAccent: 'rgba(139, 92, 246, 0.35)',
-      href: '/admin/posts',
-    },
-    {
-      label: 'Drafts',
-      value: stats.draftPosts,
-      icon: 'clock',
-      iconColor: '#c026d3',
-      borderAccent: 'rgba(192, 38, 211, 0.35)',
-      href: '/admin/posts',
-    },
-    {
-      label: 'Total Users',
-      value: stats.totalUsers,
-      icon: 'users',
-      iconColor: '#4b6bff',
-      borderAccent: 'rgba(75, 107, 255, 0.35)',
-      href: '/admin/users',
-    },
-    {
-      label: 'Active Users',
-      value: stats.activeUsers,
-      icon: 'activity',
-      iconColor: '#8b5cf6',
-      borderAccent: 'rgba(139, 92, 246, 0.35)',
-      href: '/admin/users',
-    },
-    {
-      label: 'Total Views',
-      value: stats.totalViews.toLocaleString(),
-      icon: 'eye',
-      iconColor: '#c026d3',
-      borderAccent: 'rgba(192, 38, 211, 0.35)',
-      href: '/admin/settings',
-    },
-  ];
+  const statCards: StatCard[] = stats ? [
+    { label: 'New Leads', value: stats.newLeads, sub: `${stats.totalLeads} total`, icon: 'target', accent: '#4b6bff', href: '/admin/leads' },
+    { label: 'Published Posts', value: stats.publishedPosts, sub: `${stats.draftPosts} drafts`, icon: 'file-text', accent: '#8b5cf6', href: '/admin/posts' },
+    { label: 'Team Members', value: stats.activeUsers, sub: `${stats.totalUsers} total`, icon: 'users', accent: '#c026d3', href: '/admin/users' },
+    { label: 'Page Views', value: stats.totalViews.toLocaleString(), sub: 'all time', icon: 'eye', accent: '#4b6bff', href: '/admin/settings' },
+  ] : [];
 
   return (
-    <div style={{
-      width: '100%',
-      minHeight: '100%',
-      backgroundColor: 'var(--bg-0)',
-      padding: '24px 32px',
-    }}>
-      <div style={{
-        maxWidth: '1400px',
-        margin: '0 auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '48px',
-      }}>
-        {/* Header */}
-        <Reveal direction="down">
-          <div>
-            <h1 style={{ fontSize: '2.5rem', fontWeight: '700', marginBottom: '12px', color: 'var(--fg-0)', lineHeight: '1.2' }}>Dashboard</h1>
-            <p style={{ fontSize: '1.125rem', color: 'var(--fg-1)', lineHeight: '1.5' }}>Welcome back! Here's your growth at a glance.</p>
+    <div style={{ padding: '28px 28px 48px', maxWidth: '1280px', margin: '0 auto' }}>
+
+      {/* ── Page header ─────────────────────────────────────── */}
+      <div style={{ marginBottom: '28px' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--fg-0)', margin: '0 0 2px 0' }}>Dashboard</h1>
+        <p style={{ fontSize: '0.85rem', color: 'var(--fg-3)', margin: 0 }}>Welcome back — here's what's happening.</p>
+      </div>
+
+      {/* ── Stat cards ──────────────────────────────────────── */}
+      <div className="dt-stat-grid" style={{ display: 'grid', gap: '14px', marginBottom: '24px' }}>
+        {loading ? Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} style={{ backgroundColor: 'var(--bg-1)', borderRadius: '12px', padding: '20px', border: '1px solid var(--line)' }}>
+            <Skeleton w="60%" h="12px" />
+            <div style={{ marginTop: '12px' }}><Skeleton w="40%" h="28px" /></div>
+            <div style={{ marginTop: '8px' }}><Skeleton w="50%" h="11px" /></div>
           </div>
-        </Reveal>
-
-        {/* Stats Grid */}
-        <Reveal direction="up" delay={0.1}>
-          <div className="stats-grid" style={{ display: 'grid', gap: '24px', width: '100%' }}>
-          {statCards.map((card, index) => (
-            <a
-              key={card.label}
-              href={card.href}
-              style={{
-                backgroundColor: 'var(--bg-2)',
-                border: '1px solid var(--line)',
-                borderRadius: '16px',
-                padding: '28px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                textDecoration: 'none',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = card.borderAccent;
-                e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.3)`;
-                e.currentTarget.style.transform = 'translateY(-3px)';
-                e.currentTarget.style.backgroundColor = 'var(--bg-3)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--line)';
-                e.currentTarget.style.boxShadow = 'none';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.backgroundColor = 'var(--bg-2)';
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '0.75rem', fontWeight: '700', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--fg-2)' }}>
-                    {card.label}
-                  </p>
-                  <p style={{ fontSize: '2.5rem', fontWeight: '700', lineHeight: '1.2', color: 'var(--fg-0)' }}>
-                    {card.value}
-                  </p>
-                </div>
-                <div
-                  style={{
-                    padding: '12px',
-                    borderRadius: '14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'transform 0.3s ease',
-                    background: `${card.iconColor}12`,
-                    border: `2px solid ${card.iconColor}25`,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'scale(1.08) rotate(5deg)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1) rotate(0)';
-                  }}
-                >
-                  <Icon name={card.icon as any} size="lg" style={{ color: card.iconColor }} />
-                </div>
-              </div>
-            </a>
-          ))}
-        </div>
-      </Reveal>
-
-        {/* Recent Activity & Quick Actions */}
-        <div className="activity-grid" style={{ display: 'grid', gap: '24px', width: '100%' }}>
-          {/* Recent Posts */}
-          <Reveal direction="left" delay={0.2}>
-            <div
-              style={{
-                borderRadius: '16px',
-                padding: '32px',
-                backgroundColor: 'var(--bg-1)',
-                borderColor: 'var(--line)',
-                border: '1px solid var(--line)',
-                backdropFilter: 'blur(8px)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px', gap: '16px' }}>
-                <div>
-                  <p style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', color: 'var(--fg-2)' }}>RECENT</p>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0', color: 'var(--fg-0)' }}>Latest Posts</h2>
-                </div>
-                <a
-                  href="/admin/posts"
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '10px',
-                    fontSize: '0.9rem',
-                    fontWeight: '500',
-                    transition: 'all 0.3s ease',
-                    color: 'var(--brand-blue)',
-                    backgroundColor: 'rgba(75,107,255,0.08)',
-                    border: '1px solid rgba(75,107,255,0.25)',
-                    textDecoration: 'none',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(75,107,255,0.16)';
-                    e.currentTarget.style.borderColor = 'rgba(75,107,255,0.45)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(75,107,255,0.08)';
-                    e.currentTarget.style.borderColor = 'rgba(75,107,255,0.25)';
-                  }}
-                >
-                  View all →
-                </a>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {loading ? (
-                  <p style={{ color: 'var(--fg-2)', fontSize: '0.9rem', padding: '16px' }}>Loading…</p>
-                ) : stats.recentPosts.length === 0 ? (
-                  <div style={{ padding: '24px 16px', textAlign: 'center', backgroundColor: 'var(--bg-2)', borderRadius: '10px' }}>
-                    <p style={{ color: 'var(--fg-1)', fontSize: '0.95rem', margin: '0 0 4px 0' }}>No posts yet</p>
-                    <p style={{ color: 'var(--fg-2)', fontSize: '0.85rem', margin: '0' }}>Create your first post to see it here.</p>
-                  </div>
-                ) : (
-                  stats.recentPosts.map((post) => {
-                    const isPublished = post.status === 'PUBLISHED';
-                    return (
-                      <div
-                        key={post.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          justifyContent: 'space-between',
-                          padding: '16px',
-                          borderRadius: '10px',
-                          transition: 'all 0.3s ease',
-                          backgroundColor: 'var(--bg-2)',
-                          gap: '16px',
-                          cursor: 'pointer',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = 'var(--bg-3)';
-                          e.currentTarget.style.transform = 'translateX(4px)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'var(--bg-2)';
-                          e.currentTarget.style.transform = 'translateX(0)';
-                        }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontWeight: '600', marginBottom: '4px', margin: '0', color: 'var(--fg-0)', fontSize: '0.95rem' }}>
-                            {post.title}
-                          </p>
-                          <p style={{ fontSize: '0.85rem', color: 'var(--fg-2)', margin: '4px 0 0 0' }}>
-                            {timeAgo(post.createdAt)}
-                          </p>
-                        </div>
-                        <span
-                          style={{
-                            padding: '4px 12px',
-                            borderRadius: '20px',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                            whiteSpace: 'nowrap',
-                            backgroundColor: isPublished ? 'rgba(75,107,255,0.15)' : 'rgba(192,38,211,0.15)',
-                            color: isPublished ? 'var(--brand-blue)' : 'var(--brand-magenta)',
-                            border: isPublished ? '1px solid rgba(75,107,255,0.35)' : '1px solid rgba(192,38,211,0.35)',
-                            flexShrink: 0,
-                            textTransform: 'capitalize',
-                          }}
-                        >
-                          {post.status.toLowerCase()}
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-          </div>
-        </Reveal>
-
-          {/* Quick Actions */}
-          <Reveal direction="right" delay={0.2}>
-            <div
-              style={{
-                borderRadius: '16px',
-                padding: '32px',
-                backgroundColor: 'var(--bg-1)',
-                borderColor: 'var(--line)',
-                border: '1px solid var(--line)',
-                backdropFilter: 'blur(8px)',
-              }}
-            >
-              <p style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', color: 'var(--fg-2)' }}>ACTIONS</p>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '32px', color: 'var(--fg-0)' }}>Quick Links</h2>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <a
-                  href="/admin/posts?action=create"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    border: '2px solid rgba(75,107,255,0.25)',
-                    backgroundColor: 'rgba(75,107,255,0.05)',
-                    color: 'var(--fg-0)',
-                    fontWeight: '500',
-                    fontSize: '0.95rem',
-                    textDecoration: 'none',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--brand-blue)';
-                    e.currentTarget.style.backgroundColor = 'rgba(75,107,255,0.12)';
-                    e.currentTarget.style.transform = 'translateX(4px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(75,107,255,0.25)';
-                    e.currentTarget.style.backgroundColor = 'rgba(75,107,255,0.05)';
-                    e.currentTarget.style.transform = 'translateX(0)';
-                  }}
-                >
-                  <Icon name="plus" size="md" style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
-                  <div>
-                    <p style={{ fontSize: '0.95rem', fontWeight: '500', margin: '0' }}>Create Post</p>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--fg-2)', margin: '2px 0 0 0' }}>Write new content</p>
-                  </div>
-                </a>
-
-                <a
-                  href="/admin/users"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    border: '2px solid rgba(139,92,246,0.25)',
-                    backgroundColor: 'rgba(139,92,246,0.05)',
-                    color: 'var(--fg-0)',
-                    fontWeight: '500',
-                    fontSize: '0.95rem',
-                    textDecoration: 'none',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--brand-violet)';
-                    e.currentTarget.style.backgroundColor = 'rgba(139,92,246,0.12)';
-                    e.currentTarget.style.transform = 'translateX(4px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(139,92,246,0.25)';
-                    e.currentTarget.style.backgroundColor = 'rgba(139,92,246,0.05)';
-                    e.currentTarget.style.transform = 'translateX(0)';
-                  }}
-                >
-                  <Icon name="users" size="md" style={{ color: 'var(--brand-violet)', flexShrink: 0 }} />
-                  <div>
-                    <p style={{ fontSize: '0.95rem', fontWeight: '500', margin: '0' }}>Manage Users</p>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--fg-2)', margin: '2px 0 0 0' }}>View & edit users</p>
-                  </div>
-                </a>
-
-                <a
-                  href="/admin/settings"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    border: '2px solid rgba(192,38,211,0.25)',
-                    backgroundColor: 'rgba(192,38,211,0.05)',
-                    color: 'var(--fg-0)',
-                    fontWeight: '500',
-                    fontSize: '0.95rem',
-                    textDecoration: 'none',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--brand-magenta)';
-                    e.currentTarget.style.backgroundColor = 'rgba(192,38,211,0.12)';
-                    e.currentTarget.style.transform = 'translateX(4px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(192,38,211,0.25)';
-                    e.currentTarget.style.backgroundColor = 'rgba(192,38,211,0.05)';
-                    e.currentTarget.style.transform = 'translateX(0)';
-                  }}
-                >
-                  <Icon name="settings" size="md" style={{ color: 'var(--brand-magenta)', flexShrink: 0 }} />
-                  <div>
-                    <p style={{ fontSize: '0.95rem', fontWeight: '500', margin: '0' }}>Settings</p>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--fg-2)', margin: '2px 0 0 0' }}>Configure site</p>
-                  </div>
-                </a>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-
-        {/* Chart Placeholder */}
-        <Reveal direction="up" delay={0.3}>
-          <div
+        )) : statCards.map((card) => (
+          <Link
+            key={card.label}
+            href={card.href}
             style={{
-              borderRadius: '16px',
-              padding: '40px',
-              border: '1px solid var(--line)',
-              minHeight: '320px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'var(--bg-1)',
-              backdropFilter: 'blur(8px)',
+              backgroundColor: 'var(--bg-1)', borderRadius: '12px', padding: '20px',
+              border: '1px solid var(--line)', borderTop: `3px solid ${card.accent}`,
+              textDecoration: 'none', display: 'block', transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--bg-2)';
+              e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--bg-1)';
+              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            <div style={{ textAlign: 'center' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '16px', color: 'var(--fg-0)' }}>Views Over Time</h2>
-              <p style={{ color: 'var(--fg-2)', fontSize: '0.95rem' }}>
-                {stats.totalViews === 0
-                  ? 'No page-view data yet — analytics will appear here as traffic comes in.'
-                  : `${stats.totalViews.toLocaleString()} total views tracked.`}
-              </p>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+              <div>
+                <p style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fg-3)', margin: '0 0 10px 0' }}>
+                  {card.label}
+                </p>
+                <p style={{ fontSize: '1.9rem', fontWeight: '700', color: 'var(--fg-0)', margin: '0 0 4px 0', lineHeight: 1 }}>
+                  {card.value}
+                </p>
+                {card.sub && (
+                  <p style={{ fontSize: '0.72rem', color: 'var(--fg-3)', margin: 0 }}>{card.sub}</p>
+                )}
+              </div>
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '9px', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backgroundColor: `${card.accent}18`,
+              }}>
+                <Icon name={card.icon as any} size="sm" style={{ color: card.accent }} />
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* ── Bottom row ──────────────────────────────────────── */}
+      <div className="dt-bottom-grid" style={{ display: 'grid', gap: '16px' }}>
+
+        {/* Recent Posts */}
+        <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '12px', border: '1px solid var(--line)', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid var(--line)' }}>
+            <div>
+              <p style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fg-3)', margin: '0 0 2px 0' }}>Content</p>
+              <h2 style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--fg-0)', margin: 0 }}>Recent Posts</h2>
+            </div>
+            <Link
+              href="/admin/posts"
+              style={{
+                fontSize: '0.75rem', fontWeight: '500', color: 'var(--brand-blue)',
+                textDecoration: 'none', padding: '5px 10px', borderRadius: '6px',
+                border: '1px solid rgba(75,107,255,0.25)', backgroundColor: 'rgba(75,107,255,0.06)',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(75,107,255,0.14)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(75,107,255,0.06)'; }}
+            >
+              View all →
+            </Link>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Skeleton w="55%" h="13px" />
+                  <Skeleton w="15%" h="11px" />
+                </div>
+              ))}
+            </div>
+          ) : !stats?.recentPosts.length ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <Icon name="file-text" size="md" style={{ color: 'var(--fg-3)', marginBottom: '8px' }} />
+              <p style={{ color: 'var(--fg-2)', fontSize: '0.85rem', margin: 0 }}>No posts yet</p>
+            </div>
+          ) : (
+            <div>
+              {stats.recentPosts.map((post, i) => (
+                <div
+                  key={post.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '13px 20px', gap: '16px',
+                    borderBottom: i < stats.recentPosts.length - 1 ? '1px solid var(--line)' : 'none',
+                    transition: 'background-color 0.12s',
+                    cursor: 'default',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <p style={{
+                      fontWeight: '500', color: 'var(--fg-0)', margin: 0,
+                      fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {post.title}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                    <span style={{
+                      fontSize: '0.7rem', fontWeight: '600', padding: '2px 8px', borderRadius: '20px',
+                      backgroundColor: post.status === 'PUBLISHED' ? 'rgba(75,107,255,0.12)' : 'rgba(192,38,211,0.12)',
+                      color: post.status === 'PUBLISHED' ? 'var(--brand-blue)' : 'var(--brand-magenta)',
+                      border: `1px solid ${post.status === 'PUBLISHED' ? 'rgba(75,107,255,0.25)' : 'rgba(192,38,211,0.25)'}`,
+                    }}>
+                      {post.status === 'PUBLISHED' ? 'Published' : 'Draft'}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--fg-3)', whiteSpace: 'nowrap' }}>
+                      {timeAgo(post.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          {/* Lead pipeline summary */}
+          <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '12px', border: '1px solid var(--line)', padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--fg-0)', margin: 0 }}>Leads</h2>
+              <Link
+                href="/admin/leads"
+                style={{ fontSize: '0.72rem', color: 'var(--brand-blue)', textDecoration: 'none', fontWeight: '500' }}
+              >
+                View all →
+              </Link>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {[
+                { label: 'New', value: stats?.newLeads ?? 0, color: '#4b6bff', total: stats?.totalLeads ?? 1 },
+                { label: 'Total', value: stats?.totalLeads ?? 0, color: '#8b5cf6', total: Math.max(stats?.totalLeads ?? 1, 1) },
+              ].map((item) => (
+                <div key={item.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--fg-2)', fontWeight: '500' }}>{item.label}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--fg-0)', fontWeight: '600' }}>{item.value}</span>
+                  </div>
+                  <div style={{ height: '4px', backgroundColor: 'var(--bg-3)', borderRadius: '2px', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', borderRadius: '2px',
+                      background: `linear-gradient(90deg, ${item.color}, ${item.color}99)`,
+                      width: item.total > 0 ? `${Math.min((item.value / item.total) * 100, 100)}%` : '0%',
+                      transition: 'width 0.6s ease',
+                    }} />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </Reveal>
+
+          {/* Quick actions */}
+          <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '12px', border: '1px solid var(--line)', padding: '20px' }}>
+            <h2 style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--fg-0)', margin: '0 0 14px 0' }}>Quick Actions</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {[
+                { label: 'New Post', sub: 'Write & publish content', icon: 'plus', color: '#4b6bff', href: '/admin/posts?action=create' },
+                { label: 'View Leads', sub: 'Check form submissions', icon: 'target', color: '#8b5cf6', href: '/admin/leads' },
+                { label: 'Manage Users', sub: 'Invite or update roles', icon: 'users', color: '#c026d3', href: '/admin/users' },
+              ].map((action) => (
+                <Link
+                  key={action.label}
+                  href={action.href}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '10px 12px', borderRadius: '8px',
+                    textDecoration: 'none', border: '1px solid transparent',
+                    transition: 'all 0.15s', color: 'var(--fg-0)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--bg-2)';
+                    e.currentTarget.style.borderColor = 'var(--line)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.borderColor = 'transparent';
+                  }}
+                >
+                  <div style={{
+                    width: '30px', height: '30px', borderRadius: '7px', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: `${action.color}15`,
+                  }}>
+                    <Icon name={action.icon as any} size="sm" style={{ color: action.color }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--fg-0)', margin: 0 }}>{action.label}</p>
+                    <p style={{ fontSize: '0.72rem', color: 'var(--fg-3)', margin: 0 }}>{action.sub}</p>
+                  </div>
+                  <Icon name="arrow-right" size="sm" style={{ color: 'var(--fg-3)', marginLeft: 'auto' }} />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+
       </div>
+
       <style>{`
-        .stats-grid { grid-template-columns: repeat(3, 1fr); }
-        @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 600px)  { .stats-grid { grid-template-columns: 1fr; } }
-        .activity-grid { grid-template-columns: 2fr 1fr; }
-        @media (max-width: 900px)  { .activity-grid { grid-template-columns: 1fr; } }
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .dt-stat-grid { grid-template-columns: repeat(4, 1fr); }
+        .dt-bottom-grid { grid-template-columns: 1fr 320px; }
+        @media (max-width: 1100px) { .dt-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 900px)  { .dt-bottom-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 640px)  { .dt-stat-grid { grid-template-columns: repeat(2, 1fr); } }
       `}</style>
     </div>
   );
