@@ -120,7 +120,7 @@ async function sendInviteEmail(to: string, name: string, role: string, tempPassw
       Authorization: `Bearer ${resendKey}`,
     },
     body: JSON.stringify({
-      from: 'Digital Triangle <noreply@digitaltriangle.in>',
+      from: 'Digital Triangle <noreply@thedigitaltriangle.com>',
       to,
       subject: `You've been invited to Digital Triangle Admin`,
       html,

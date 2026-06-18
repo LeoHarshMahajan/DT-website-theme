@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
           Authorization: `Bearer ${resendKey}`,
         },
         body: JSON.stringify({
-          from: 'Digital Triangle Website <noreply@digitaltriangle.in>',
+          from: 'Digital Triangle <noreply@thedigitaltriangle.com>',
           to: contactEmail,
           reply_to: email,
           subject: `New contact from ${name}${company ? ` (${company})` : ''}`,
