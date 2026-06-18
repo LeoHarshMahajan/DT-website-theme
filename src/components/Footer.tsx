@@ -45,9 +45,8 @@ const FOOTER_COLUMNS = [
 ];
 
 const SOCIAL_LINKS = [
-  { label: 'Twitter / X', icon: '𝕏', href: 'https://twitter.com' },
-  { label: 'LinkedIn', icon: 'in', href: 'https://linkedin.com' },
-  { label: 'GitHub', icon: '⌥', href: 'https://github.com' },
+  { label: 'Instagram', icon: '◈', href: 'https://www.instagram.com/digitaltriangle_' },
+  { label: 'LinkedIn', icon: 'in', href: 'https://www.linkedin.com/company/digitaltriangle/' },
 ];
 
 export function Footer() {
@@ -114,11 +113,37 @@ export function Footer() {
           </div>
 
           {/* ── Bottom bar ── */}
+          {/* Made in Bharat · Built with AI — full-width centered strip */}
+          <div style={{
+            borderTop: '1px solid var(--line)',
+            padding: '14px 0',
+            textAlign: 'center',
+          }}>
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: '500',
+              color: 'var(--fg-3)',
+              letterSpacing: '0.04em',
+            }}>
+              🇮🇳{' '}
+              <span style={{ color: 'var(--fg-2)', fontWeight: '600' }}>Made in Bharat</span>
+              <span style={{ margin: '0 10px', opacity: 0.4 }}>·</span>
+              Dreamt by humans,{' '}
+              <span style={{
+                background: 'linear-gradient(90deg, var(--brand-blue), var(--brand-violet))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontWeight: '600',
+              }}>
+                built with AI ⚡
+              </span>
+            </span>
+          </div>
+
           <div
             className="footer-bottom"
             style={{
-              borderTop: '1px solid var(--line)',
-              paddingTop: '28px',
+              paddingTop: '20px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
