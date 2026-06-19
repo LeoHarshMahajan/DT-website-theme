@@ -89,7 +89,7 @@ export const authConfig: NextAuthConfig = {
     // Authorized callback - RBAC checks
     async authorized({ request, auth }) {
       const { pathname } = request.nextUrl;
-      const adminRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN] as string[];
+      const adminRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.EDITOR] as string[];
 
       // Admin routes
       if (pathname.startsWith("/admin")) {

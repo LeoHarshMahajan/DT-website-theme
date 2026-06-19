@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'] as const;
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'EDITOR'] as const;
 
 // NextAuth v5 (Auth.js) cookie names. On HTTPS the cookie is prefixed `__Secure-`.
 // getToken must be told the exact cookie name + secureCookie, otherwise it can't
