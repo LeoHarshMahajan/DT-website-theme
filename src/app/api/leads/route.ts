@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
+import { sendLeadNotification } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +54,21 @@ export async function POST(request: NextRequest) {
         source: d.source,
       },
     });
+
+    sendLeadNotification({
+      type: d.type,
+      name: d.name,
+      email: d.email,
+      phone: d.phone,
+      company: d.company,
+      website: d.website,
+      budget: d.budget,
+      services: toStr(d.services),
+      goals: toStr(d.goals),
+      slot: d.slot,
+      message: d.message,
+      source: d.source,
+    }).catch((err) => console.error('[leads] notify email failed:', err));
 
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (err) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { sendLeadNotification } from '@/lib/email';
 
 const contactSchema = z.object({
   name: z.string().min(2).max(100),
@@ -25,7 +26,6 @@ export async function POST(request: NextRequest) {
 
     const { name, email, company, phone, budget, services, message } = data.data;
 
-    // ── Persist to DB so it shows in the admin Leads dashboard ───────────────
     try {
       const { prisma } = await import('@/lib/db/prisma');
       await prisma.lead.create({
@@ -45,41 +45,17 @@ export async function POST(request: NextRequest) {
       console.warn('[contact] DB unavailable, lead not persisted:', dbErr);
     }
 
-    // ── Send via Resend (email service) ──────────────────────────────────────
-    // Requires RESEND_API_KEY in .env — if not set, log and return success
-    const resendKey = process.env.RESEND_API_KEY;
-    const contactEmail = process.env.CONTACT_EMAIL || 'info@digitaltriangle.in';
-
-    if (resendKey) {
-      const emailBody = [
-        `Name: ${name}`,
-        `Email: ${email}`,
-        company ? `Company: ${company}` : null,
-        phone ? `Phone: ${phone}` : null,
-        budget ? `Budget: ${budget}` : null,
-        services?.length ? `Services: ${services.join(', ')}` : null,
-        message ? `\nMessage:\n${message}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n');
-
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${resendKey}`,
-        },
-        body: JSON.stringify({
-          from: 'Digital Triangle <noreply@thedigitaltriangle.com>',
-          to: contactEmail,
-          reply_to: email,
-          subject: `New contact from ${name}${company ? ` (${company})` : ''}`,
-          text: emailBody,
-        }),
-      });
-    } else {
-      console.info('[contact] RESEND_API_KEY not set — form submission received but email not sent:', { name, email });
-    }
+    sendLeadNotification({
+      type: 'CONTACT',
+      name,
+      email,
+      company,
+      phone,
+      budget,
+      services: services?.join(', '),
+      message,
+      source: '/contact',
+    }).catch((err) => console.error('[contact] notify email failed:', err));
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
