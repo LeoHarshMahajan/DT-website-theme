@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Metadata } from 'next';
-import { POST_BY_SLUG, BLOG_POSTS } from '@/lib/blogPosts';
+import { POST_BY_SLUG, BLOG_POSTS, type BlogPost } from '@/lib/blogPosts';
 import { BLOG_CONTENT } from '@/lib/blogContent';
+import { getPostBySlug, getRelatedPosts } from '@/lib/db/queries';
 import { Footer } from '@/components/Footer';
 import { Reveal } from '@/components/ui/Reveal';
 
@@ -10,15 +11,7 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const post = POST_BY_SLUG[slug];
-  if (!post) return { title: 'Post Not Found' };
-  return {
-    title: `${post.title} — Digital Triangle`,
-    description: post.description,
-  };
-}
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://thedigitaltriangle.com';
 
 const TAG_COLORS: Record<string, string> = {
   'AI Marketing': '#4b6bff', 'Emotional Branding': '#8b5cf6', 'Branding': '#8b5cf6',
@@ -34,16 +27,99 @@ const TAG_COLORS: Record<string, string> = {
   'India': '#e11d8a', 'Templates': '#f59e0b', 'Coupons': '#e11d8a',
 };
 
+// Normalised shape used by the renderer — works for both DB and static posts
+interface RenderPost {
+  title: string;
+  description: string;
+  slug: string;
+  liveUrl: string;
+  author: { name: string };
+  createdAt: string;
+  tags: string[];
+  content: string; // HTML body
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+
+  // Try DB first
+  try {
+    const dbPost = await getPostBySlug(slug);
+    if (dbPost && dbPost.status === 'PUBLISHED') {
+      return {
+        title: `${dbPost.metaTitle ?? dbPost.title} — Digital Triangle`,
+        description: dbPost.metaDescription ?? dbPost.excerpt ?? '',
+      };
+    }
+  } catch { /* DB unavailable — fall through to static */ }
+
+  // Fallback to static
+  const post = POST_BY_SLUG[slug];
+  if (!post) return { title: 'Post Not Found' };
+  return {
+    title: `${post.title} — Digital Triangle`,
+    description: post.description,
+  };
+}
+
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
-  const post = POST_BY_SLUG[slug];
-  if (!post) notFound();
 
-  const content = BLOG_CONTENT[slug] ?? '';
+  let post: RenderPost | null = null;
+  let relatedPosts: BlogPost[] = [];
+
+  // 1. Try DB
+  try {
+    const dbPost = await getPostBySlug(slug);
+    if (dbPost && dbPost.status === 'PUBLISHED') {
+      post = {
+        title: dbPost.title,
+        description: dbPost.excerpt ?? '',
+        slug: dbPost.slug,
+        liveUrl: `${SITE_URL}/blog/${dbPost.slug}`,
+        author: { name: dbPost.author?.name ?? 'Digital Triangle' },
+        createdAt: (dbPost.publishedAt ?? dbPost.createdAt).toISOString(),
+        tags: dbPost.tags.map((t: { name: string }) => t.name),
+        content: dbPost.content ?? '',
+      };
+
+      // Related posts from DB
+      const dbRelated = await getRelatedPosts(dbPost.id, 3);
+      relatedPosts = dbRelated.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        description: r.excerpt ?? '',
+        slug: r.slug,
+        liveUrl: `${SITE_URL}/blog/${r.slug}`,
+        author: { name: r.author?.name ?? 'Digital Triangle', email: '' },
+        createdAt: (r.publishedAt ?? r.createdAt).toISOString(),
+        tags: (r.tags ?? []).map((t: { name: string }) => t.name),
+      }));
+    }
+  } catch { /* DB unavailable */ }
+
+  // 2. Fallback to static data
+  if (!post) {
+    const staticPost = POST_BY_SLUG[slug];
+    if (!staticPost) notFound();
+
+    post = {
+      title: staticPost.title,
+      description: staticPost.description,
+      slug: staticPost.slug,
+      liveUrl: staticPost.liveUrl,
+      author: staticPost.author,
+      createdAt: staticPost.createdAt,
+      tags: staticPost.tags,
+      content: BLOG_CONTENT[slug] ?? '',
+    };
+
+    relatedPosts = BLOG_POSTS
+      .filter(p => p.slug !== slug && p.tags.some(t => staticPost.tags.includes(t)))
+      .slice(0, 3);
+  }
+
   const accentColor = TAG_COLORS[post.tags[0]] ?? 'var(--brand-blue)';
-  const related = BLOG_POSTS
-    .filter(p => p.slug !== slug && p.tags.some(t => post.tags.includes(t)))
-    .slice(0, 3);
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -114,7 +190,6 @@ export default async function BlogPostPage({ params }: Props) {
             {/* Meta row */}
             <Reveal direction="up" delay={0.10}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                {/* Author avatar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div
                     style={{
@@ -154,23 +229,25 @@ export default async function BlogPostPage({ params }: Props) {
 
               {/* Main column */}
               <div>
-                {/* Description / intro */}
-                <Reveal direction="up" delay={0.06}>
-                  <p
-                    style={{
-                      fontSize: 'clamp(1.05rem, 1.8vw, 1.2rem)', lineHeight: 1.8,
-                      color: 'var(--fg-1)', marginBottom: '40px',
-                      paddingBottom: '40px', borderBottom: '1px solid var(--line)',
-                    }}
-                  >
-                    {post.description}
-                  </p>
-                </Reveal>
+                {/* Excerpt / intro */}
+                {post.description && (
+                  <Reveal direction="up" delay={0.06}>
+                    <p
+                      style={{
+                        fontSize: 'clamp(1.05rem, 1.8vw, 1.2rem)', lineHeight: 1.8,
+                        color: 'var(--fg-1)', marginBottom: '40px',
+                        paddingBottom: '40px', borderBottom: '1px solid var(--line)',
+                      }}
+                    >
+                      {post.description}
+                    </p>
+                  </Reveal>
+                )}
 
                 {/* Article body */}
-                {content ? (
+                {post.content ? (
                   <div
-                    dangerouslySetInnerHTML={{ __html: content }}
+                    dangerouslySetInnerHTML={{ __html: post.content }}
                     className="article-prose"
                   />
                 ) : (
@@ -276,14 +353,14 @@ export default async function BlogPostPage({ params }: Props) {
             </div>
 
             {/* ── Related posts ── */}
-            {related.length > 0 && (
+            {relatedPosts.length > 0 && (
               <div style={{ marginTop: 'clamp(48px, 7vw, 80px)', paddingTop: '48px', borderTop: '1px solid var(--line)' }}>
                 <Reveal direction="up">
                   <h2 style={{ fontSize: 'clamp(1.3rem, 2.5vw, 1.8rem)', fontWeight: 800, letterSpacing: '-0.025em', color: 'var(--fg-0)', marginBottom: '28px' }}>
                     Related articles
                   </h2>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }} className="related-grid">
-                    {related.map(r => {
+                    {relatedPosts.map(r => {
                       const rc = TAG_COLORS[r.tags[0]] ?? 'var(--brand-blue)';
                       return (
                         <Link
