@@ -11,8 +11,10 @@ interface Post {
   slug: string;
   description: string;
   content: string;
-  tags: string;
+  tags: string[] | string;
+  tagsString?: string;
   published: boolean;
+  status?: string;
   createdAt: string;
   updatedAt: string;
   author: { name: string };
@@ -47,7 +49,7 @@ function PostForm({
     slug: post?.slug ?? '',
     description: post?.description ?? '',
     content: post?.content ?? '',
-    tags: post?.tags ?? '',
+    tags: post?.tagsString ?? (Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags ?? '')),
     published: post?.published ?? false,
   });
 

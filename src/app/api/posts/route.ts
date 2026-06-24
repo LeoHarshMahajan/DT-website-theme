@@ -29,8 +29,10 @@ function shape(p: PostWithRelations) {
     slug: p.slug,
     description: p.excerpt ?? '',
     content: p.content,
-    tags: p.tags.map((t) => t.name).join(', '),
+    tags: p.tags.map((t) => t.name),        // always an array
+    tagsString: p.tags.map((t) => t.name).join(', '), // for admin form inputs
     published: p.status === 'PUBLISHED',
+    status: p.status,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
     author: { name: p.author?.name ?? 'Unknown' },
@@ -38,17 +40,38 @@ function shape(p: PostWithRelations) {
 }
 
 // GET /api/posts — authenticated: all posts; public: published only
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await auth();
-  const where = session?.user ? {} : { status: 'PUBLISHED' };
+  const { searchParams } = new URL(request.url);
 
-  const posts = await prisma.post.findMany({
-    where,
-    include: { author: { select: { name: true } }, tags: { select: { name: true } } },
-    orderBy: { createdAt: 'desc' },
+  const page  = Math.max(1, parseInt(searchParams.get('page')  ?? '1', 10));
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '10', 10)));
+  const search = searchParams.get('search')?.trim() ?? '';
+  const skip = (page - 1) * limit;
+
+  const where: Record<string, any> = session?.user ? {} : { status: 'PUBLISHED' };
+  if (search) {
+    where.OR = [
+      { title:   { contains: search, mode: 'insensitive' } },
+      { excerpt: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
+      where,
+      include: { author: { select: { name: true } }, tags: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.post.count({ where }),
+  ]);
+
+  return NextResponse.json({
+    posts: posts.map(shape),
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   });
-
-  return NextResponse.json({ posts: posts.map(shape) });
 }
 
 const createPostSchema = z.object({

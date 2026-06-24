@@ -22,6 +22,7 @@ const navGroups = [
     label: 'Content',
     items: [
       { name: 'Posts', href: '/admin/posts', icon: 'file-text' as const },
+      { name: 'Pages', href: '/admin/pages', icon: 'layout' as const },
     ],
   },
   {
