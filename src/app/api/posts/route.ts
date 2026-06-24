@@ -44,20 +44,27 @@ export async function GET(request: NextRequest) {
   const session = await auth();
   const { searchParams } = new URL(request.url);
 
-  const page  = Math.max(1, parseInt(searchParams.get('page')  ?? '1', 10));
-  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '10', 10)));
+  const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1', 10));
+  const maxLim = session?.user ? 1000 : 100;
+  const limit  = Math.min(maxLim, Math.max(1, parseInt(searchParams.get('limit') ?? '10', 10)));
   const search = searchParams.get('search')?.trim() ?? '';
-  const skip = (page - 1) * limit;
+  const tag    = searchParams.get('tag')?.trim() ?? '';
+  const skip   = (page - 1) * limit;
 
-  const where: Record<string, any> = session?.user ? {} : { status: 'PUBLISHED' };
+  const base: Record<string, any> = session?.user ? {} : { status: 'PUBLISHED' };
+  const where: Record<string, any> = { ...base };
+
   if (search) {
     where.OR = [
       { title:   { contains: search, mode: 'insensitive' } },
       { excerpt: { contains: search, mode: 'insensitive' } },
     ];
   }
+  if (tag) {
+    where.tags = { some: { name: { equals: tag, mode: 'insensitive' } } };
+  }
 
-  const [posts, total] = await Promise.all([
+  const [posts, total, allTags] = await Promise.all([
     prisma.post.findMany({
       where,
       include: { author: { select: { name: true } }, tags: { select: { name: true } } },
@@ -66,11 +73,20 @@ export async function GET(request: NextRequest) {
       take: limit,
     }),
     prisma.post.count({ where }),
+    // Return distinct tag names used in published posts (for filter chips)
+    !tag && !search
+      ? prisma.tag.findMany({
+          where: { posts: { some: base } },
+          select: { name: true },
+          orderBy: { name: 'asc' },
+        })
+      : Promise.resolve(null),
   ]);
 
   return NextResponse.json({
     posts: posts.map(shape),
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    ...(allTags ? { availableTags: allTags.map((t) => t.name) } : {}),
   });
 }
 

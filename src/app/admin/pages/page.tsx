@@ -280,6 +280,7 @@ export default function AdminPagesPage() {
   if (viewMode === 'create' || viewMode === 'edit') {
     return (
       <PageForm
+        key={editingPage?.id ?? 'new'}
         page={editingPage}
         onSave={handleSave}
         onCancel={() => { setViewMode('list'); setEditingPage(null); }}

@@ -318,7 +318,7 @@ export default function AdminPostsPage() {
 
   const loadPosts = () => {
     setLoading(true);
-    fetch('/api/posts')
+    fetch('/api/posts?limit=1000')
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
       .then((data) => setPosts(data.posts ?? []))
       .catch(() => {})
