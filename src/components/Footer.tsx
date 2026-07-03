@@ -37,9 +37,9 @@ const FOOTER_COLUMNS = [
   {
     title: 'Legal',
     links: [
-      { label: 'Privacy Policy',    href: '#' },
-      { label: 'Terms of Service',  href: '#' },
-      { label: 'Cookie Policy',     href: '#' },
+      { label: 'Privacy Policy',    href: '/pages/privacy-policy' },
+      { label: 'Terms of Service',  href: '/pages/terms-of-service' },
+      { label: 'Cookie Policy',     href: '/pages/cookie-policy' },
     ],
   },
 ];

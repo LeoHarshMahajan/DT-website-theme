@@ -44,6 +44,8 @@ function PostForm({
   onSave: (data: Partial<Post>) => void;
   onCancel: () => void;
 }) {
+  const isEditing = !!post;
+
   const [form, setForm] = useState({
     title: post?.title ?? '',
     slug: post?.slug ?? '',
@@ -59,7 +61,8 @@ function PostForm({
     setForm((f) => ({
       ...f,
       title: v,
-      slug: f.slug === '' || f.slug === slugify(f.title) ? slugify(v) : f.slug,
+      // Only auto-generate slug for new posts; never overwrite slug on an existing post
+      slug: !isEditing && (f.slug === '' || f.slug === slugify(f.title)) ? slugify(v) : f.slug,
     }));
   };
 

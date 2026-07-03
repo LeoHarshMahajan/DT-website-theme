@@ -119,8 +119,7 @@ export default function CaseStudiesPage() {
                 </Reveal>
                 <Reveal direction="up" delay={0.1}>
                   <h1 style={{ fontSize: 'clamp(2.6rem, 5.5vw, 4.2rem)', fontWeight: 800, lineHeight: 1.0, letterSpacing: '-0.035em', color: 'var(--fg-0)', marginBottom: '24px' }}>
-                    Real brands.<br />
-                    <span className="grad-text">Real growth math.</span>
+                    Real brands. <span className="grad-text">Real growth math.</span>
                   </h1>
                 </Reveal>
                 <Reveal direction="up" delay={0.15}>
@@ -189,11 +188,11 @@ export default function CaseStudiesPage() {
                     </div>
 
                     {/* Right — metrics */}
-                    <div style={{ display: 'flex', gap: '20px', flexShrink: 0 }} className="case-metrics">
+                    <div style={{ display: 'flex', gap: '24px', flexShrink: 0 }} className="case-metrics">
                       {cs.metrics.map(m => (
-                        <div key={m.label} style={{ textAlign: 'center', minWidth: '72px' }}>
-                          <p style={{ fontSize: '1.6rem', fontWeight: '800', color: m.color, letterSpacing: '-0.04em', lineHeight: 1 }}>{m.value}</p>
-                          <p style={{ fontSize: '0.7rem', color: 'var(--fg-3)', marginTop: '6px', lineHeight: 1.3 }}>{m.label}</p>
+                        <div key={m.label} style={{ textAlign: 'center', minWidth: '88px' }}>
+                          <p style={{ fontSize: '2rem', fontWeight: '800', color: m.color, letterSpacing: '-0.04em', lineHeight: 1 }}>{m.value}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--fg-3)', marginTop: '8px', lineHeight: 1.3 }}>{m.label}</p>
                         </div>
                       ))}
                     </div>

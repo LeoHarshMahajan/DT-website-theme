@@ -14,7 +14,7 @@ const INDUSTRIES = [
     name: 'D2C Brands',
     tagline: 'From ₹1Cr to ₹100Cr.',
     desc: 'Founder-led brands scaling DTC need a full-funnel engine: paid acquisition, SEO, retention, and creative systems that don\'t require an army of agencies.',
-    href: '/industries/d2c',
+    href: '/contact',
     metrics: ['4.2× avg ROAS', '−40% CAC', '3× revenue in 9mo'],
     color: '#4b6bff',
   },
@@ -23,7 +23,7 @@ const INDUSTRIES = [
     name: 'Ecommerce',
     tagline: 'Shopify, custom, marketplaces.',
     desc: 'Multi-channel ecommerce brands need unified attribution, marketplace SEO, and creative systems that can keep pace with product launches.',
-    href: '/industries/ecommerce',
+    href: '/contact',
     metrics: ['Amazon SEO dominance', 'Unified attribution', 'AI creative at scale'],
     color: '#8b5cf6',
   },
@@ -32,7 +32,7 @@ const INDUSTRIES = [
     name: 'SaaS & Startups',
     tagline: 'Product-led growth + paid acquisition.',
     desc: 'SaaS companies need a combination of AEO (Answer Engine Optimisation), content systems, LinkedIn B2B reach, and performance loops to grow MRR efficiently.',
-    href: '/industries/saas',
+    href: '/contact',
     metrics: ['AEO for AI visibility', 'Pipeline systems', 'CAC efficiency'],
     color: '#c026d3',
   },
@@ -41,7 +41,7 @@ const INDUSTRIES = [
     name: 'Luxury & Lifestyle',
     tagline: 'Premium brands across India, GCC, EU.',
     desc: 'Luxury brands need growth without compromising brand equity. Precision targeting, curated content, and attribution that accounts for long sales cycles.',
-    href: '/industries/luxury',
+    href: '/contact',
     metrics: ['Precision targeting', 'Brand equity preserved', 'GCC + EU expansion'],
     color: '#e11d8a',
   },
@@ -50,7 +50,7 @@ const INDUSTRIES = [
     name: 'Fashion & Beauty',
     tagline: 'Reels-first attention + retention systems.',
     desc: 'Fast-moving categories need constant creative refresh, trend-aware content strategy, and retention systems that convert first-time buyers into advocates.',
-    href: '/industries/fashion',
+    href: '/contact',
     metrics: ['60+ creatives/week', 'Reels strategy', '38% repeat purchase'],
     color: '#f59e0b',
   },
@@ -59,7 +59,7 @@ const INDUSTRIES = [
     name: 'Enterprise B2B',
     tagline: 'Long-cycle pipelines, AEO, ABM.',
     desc: 'B2B brands with long sales cycles need a different playbook: AEO to win AI answer engines, ABM for high-value accounts, and content that educates at every stage.',
-    href: '/industries/b2b',
+    href: '/contact',
     metrics: ['AEO + ABM', 'Pipeline tripled', '−55% cost per lead'],
     color: '#10b981',
   },
@@ -68,7 +68,7 @@ const INDUSTRIES = [
     name: 'Healthcare & Edtech',
     tagline: 'Trust-first content + compliant growth.',
     desc: 'Regulated industries need growth frameworks that comply with advertising guidelines while still building organic reach and conversion at scale.',
-    href: '/industries/healthcare',
+    href: '/contact',
     metrics: ['Compliant growth', 'Organic-first', 'Trust building'],
     color: '#06b6d4',
   },
@@ -77,7 +77,7 @@ const INDUSTRIES = [
     name: 'Fintech & BFSI',
     tagline: 'Regulated yet fast-moving.',
     desc: 'Fintech brands compete on trust and speed. We build content systems, AEO strategies, and performance stacks that respect compliance while driving rapid acquisition.',
-    href: '/industries/fintech',
+    href: '/contact',
     metrics: ['AEO visibility', 'Trust content', 'Performance at scale'],
     color: '#6366f1',
   },
@@ -86,7 +86,7 @@ const INDUSTRIES = [
     name: 'Food & Beverage',
     tagline: 'D2C food brands scaling on Reels + SEO.',
     desc: 'Food brands need content that makes people hungry and performance ads that close. We combine UGC systems, Reels strategy, and marketplace SEO for D2C food.',
-    href: '/industries/food',
+    href: '/contact',
     metrics: ['UGC at scale', 'Reels-first', 'Marketplace SEO'],
     color: '#ef4444',
   },
@@ -95,7 +95,7 @@ const INDUSTRIES = [
     name: 'Real Estate & Co-living',
     tagline: 'Long-cycle, high-value buyer journeys.',
     desc: 'Property brands need content that nurtures long buying cycles, AEO for intent queries, and CRM automation that keeps leads warm over months.',
-    href: '/industries/realestate',
+    href: '/contact',
     metrics: ['AEO for property', 'CRM automation', 'Lead nurture'],
     color: '#84cc16',
   },
@@ -104,7 +104,7 @@ const INDUSTRIES = [
     name: 'Founders & Personal Brand',
     tagline: 'Turn founders into category authorities.',
     desc: 'Founder-led brands have an unfair advantage: a real person. We build LinkedIn presence, Reels strategy, and thought-leadership content that converts attention into customers.',
-    href: '/industries/founders',
+    href: '/contact',
     metrics: ['LinkedIn growth', 'Founder brand', 'Pipeline from content'],
     color: '#f472b6',
   },
@@ -113,7 +113,7 @@ const INDUSTRIES = [
     name: 'Gaming & Entertainment',
     tagline: 'Community-driven growth systems.',
     desc: 'Gaming and entertainment brands live in communities. We build community management systems, creator partnerships, and performance loops tuned for high-engagement audiences.',
-    href: '/industries/gaming',
+    href: '/contact',
     metrics: ['Community systems', 'Creator networks', 'LTV-focused'],
     color: '#a855f7',
   },
@@ -194,9 +194,9 @@ export default function IndustriesPage() {
                         ))}
                       </div>
 
-                      {/* Arrow */}
+                      {/* CTA */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: ind.color, fontSize: '0.82rem', fontWeight: '600' }}>
-                        Learn more
+                        Let's Talk
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                           <path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>

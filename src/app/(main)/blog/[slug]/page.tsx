@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (dbPost && dbPost.status === 'PUBLISHED') {
       return {
         title: `${dbPost.metaTitle ?? dbPost.title} — Digital Triangle`,
-        description: dbPost.metaDescription ?? dbPost.excerpt ?? '',
+        description: dbPost.metaDescription ?? dbPost.excerpt ?? `Read ${dbPost.title} on the Digital Triangle blog.`,
       };
     }
   } catch { /* DB unavailable — fall through to static */ }

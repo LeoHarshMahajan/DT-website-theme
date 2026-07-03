@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { BLOG_POSTS, type BlogPost } from '@/lib/blogPosts';
@@ -38,6 +38,8 @@ export function BlogContent() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  // null = unknown, true = DB has posts, false = DB is empty → use static fallback
+  const dbHasPosts = useRef<boolean | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -52,23 +54,35 @@ export function BlogContent() {
       if (tag)    params.set('tag', tag);
       if (search) params.set('search', search);
 
-      const res = await fetch(`/api/posts?${params}`);
+      const res = await fetch(`/api/posts?${params}`, { cache: 'no-store' });
       if (!res.ok) throw new Error();
       const data = await res.json();
 
+      const isFirstUnfiltered = page === 1 && !tag && !search;
+
       if (!data.posts || data.posts.length === 0) {
-        // fallback to static mock if DB has nothing
-        const mock = tag
-          ? BLOG_POSTS.filter((p) => p.tags.includes(tag))
-          : search
-          ? BLOG_POSTS.filter((p) =>
-              p.title.toLowerCase().includes(search.toLowerCase()) ||
-              p.description.toLowerCase().includes(search.toLowerCase())
-            )
-          : BLOG_POSTS;
-        setPosts(mock.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE));
-        setTotalPages(Math.ceil(mock.length / ITEMS_PER_PAGE));
+        // On first unfiltered load: record that DB is empty and use static fallback
+        // On paginated/filtered loads: if DB has posts, just show empty (don't mix in static data)
+        if (isFirstUnfiltered) dbHasPosts.current = false;
+
+        if (dbHasPosts.current === false) {
+          const mock = tag
+            ? BLOG_POSTS.filter((p) => p.tags.includes(tag))
+            : search
+            ? BLOG_POSTS.filter((p) =>
+                p.title.toLowerCase().includes(search.toLowerCase()) ||
+                p.description.toLowerCase().includes(search.toLowerCase())
+              )
+            : BLOG_POSTS;
+          setPosts(mock.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE));
+          setTotalPages(Math.ceil(mock.length / ITEMS_PER_PAGE));
+        } else {
+          // DB has posts but this page is empty (past last page) — show nothing
+          setPosts([]);
+          setTotalPages(data.pagination?.pages ?? 1);
+        }
       } else {
+        if (isFirstUnfiltered) dbHasPosts.current = true;
         setPosts(data.posts);
         setTotalPages(data.pagination?.pages ?? 1);
       }
@@ -80,10 +94,11 @@ export function BlogContent() {
         setAvailableTags(mockTagsFromPosts(BLOG_POSTS));
       }
     } catch {
+      // Network error fallback — use static data
       const mock = selectedTag
         ? BLOG_POSTS.filter((p) => p.tags.includes(selectedTag))
         : BLOG_POSTS;
-      setPosts(mock);
+      setPosts(mock.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE));
       setTotalPages(Math.ceil(mock.length / ITEMS_PER_PAGE));
       if (!availableTags.length) setAvailableTags(mockTagsFromPosts(BLOG_POSTS));
     } finally {
