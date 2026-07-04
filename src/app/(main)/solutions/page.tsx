@@ -190,9 +190,11 @@ export default function SolutionsPage() {
                         <span style={{ fontSize: '0.65rem', fontWeight: '700', color: 'var(--fg-3)', fontFamily: 'monospace' }}>{sol.num}</span>
                         <span style={{ fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: sol.color }}>{sol.eyebrow}</span>
                       </div>
-                      <h2 style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', fontWeight: '700', letterSpacing: '-0.025em', color: 'var(--fg-0)', marginBottom: '10px' }}>
-                        {sol.title}
-                      </h2>
+                      <Link href={sol.href} className="sol-title-link" style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <h2 style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', fontWeight: '700', letterSpacing: '-0.025em', color: 'var(--fg-0)', marginBottom: '10px' }}>
+                          {sol.title}
+                        </h2>
+                      </Link>
                       <p style={{ fontSize: '1rem', fontWeight: '500', color: 'var(--fg-1)', marginBottom: '16px', lineHeight: 1.5 }}>{sol.headline}</p>
                       <p style={{ fontSize: '0.9rem', lineHeight: 1.7, color: 'var(--fg-2)', marginBottom: '20px' }}>{sol.desc}</p>
                       <ul style={{ display: 'flex', flexDirection: 'column', gap: '8px', listStyle: 'none', padding: 0 }}>
@@ -251,6 +253,8 @@ export default function SolutionsPage() {
 
       <style>{`
         @media (max-width: 768px) { .sol-row { grid-template-columns: 1fr !important; } }
+        .sol-title-link h2 { transition: color 0.15s; }
+        .sol-title-link:hover h2 { color: var(--brand-blue); }
       `}</style>
     </>
   );

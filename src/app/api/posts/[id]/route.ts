@@ -35,6 +35,9 @@ const updateSchema = z.object({
   content: z.string().optional(),
   published: z.boolean().optional(),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
+  metaTitle: z.string().optional(),
+  ogImage: z.string().optional(),
+  canonical: z.string().optional(),
 });
 
 // PATCH /api/posts/[id]
@@ -63,6 +66,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     data.status = parsed.data.published ? 'PUBLISHED' : 'DRAFT';
     if (parsed.data.published && !existing.publishedAt) data.publishedAt = new Date();
   }
+
+  if (parsed.data.metaTitle !== undefined) data.metaTitle = parsed.data.metaTitle || null;
+  if (parsed.data.ogImage !== undefined) data.ogImage = parsed.data.ogImage || null;
+  if (parsed.data.canonical !== undefined) data.canonical = parsed.data.canonical || null;
 
   if (parsed.data.tags !== undefined) {
     const tagNames = parseTags(parsed.data.tags);

@@ -13,6 +13,9 @@ interface Post {
   content: string;
   tags: string[] | string;
   tagsString?: string;
+  metaTitle?: string;
+  ogImage?: string;
+  canonical?: string;
   published: boolean;
   status?: string;
   createdAt: string;
@@ -52,6 +55,9 @@ function PostForm({
     description: post?.description ?? '',
     content: post?.content ?? '',
     tags: post?.tagsString ?? (Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags ?? '')),
+    metaTitle: post?.metaTitle ?? '',
+    ogImage: post?.ogImage ?? '',
+    canonical: post?.canonical ?? '',
     published: post?.published ?? false,
   });
 
@@ -281,6 +287,47 @@ function PostForm({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* SEO */}
+          <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '14px', padding: '20px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <p style={{ fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--fg-3)', margin: 0 }}>SEO</p>
+            <div>
+              <label style={labelStyle}>SEO Title <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(overrides post title in search)</span></label>
+              <input
+                type="text"
+                value={form.metaTitle}
+                onChange={(e) => set('metaTitle', e.target.value)}
+                placeholder={form.title || 'Leave blank to use post title'}
+                style={inputStyle}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
+                onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Cover Image URL</label>
+              <input
+                type="url"
+                value={form.ogImage}
+                onChange={(e) => set('ogImage', e.target.value)}
+                placeholder="https://..."
+                style={inputStyle}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
+                onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Canonical URL</label>
+              <input
+                type="url"
+                value={form.canonical}
+                onChange={(e) => set('canonical', e.target.value)}
+                placeholder="https://thedigitaltriangle.com/blog/..."
+                style={inputStyle}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
+                onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
+              />
+            </div>
           </div>
 
           {/* Author */}

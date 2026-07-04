@@ -16,6 +16,9 @@ type PostWithRelations = {
   excerpt: string | null;
   content: string;
   status: string;
+  metaTitle: string | null;
+  ogImage: string | null;
+  canonical: string | null;
   createdAt: Date;
   updatedAt: Date;
   author: { name: string | null } | null;
@@ -29,6 +32,9 @@ function shape(p: PostWithRelations) {
     slug: p.slug,
     description: p.excerpt ?? '',
     content: p.content,
+    metaTitle: p.metaTitle ?? '',
+    ogImage: p.ogImage ?? '',
+    canonical: p.canonical ?? '',
     tags: p.tags.map((t) => t.name),        // always an array
     tagsString: p.tags.map((t) => t.name).join(', '), // for admin form inputs
     published: p.status === 'PUBLISHED',
@@ -97,6 +103,9 @@ const createPostSchema = z.object({
   content: z.string().optional().default(''),
   published: z.boolean().optional().default(false),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
+  metaTitle: z.string().optional(),
+  ogImage: z.string().optional(),
+  canonical: z.string().optional(),
 });
 
 function parseTags(tags: string | string[] | undefined): string[] {
@@ -143,6 +152,9 @@ export async function POST(request: NextRequest) {
       publishedAt: published ? new Date() : null,
       authorId: (session.user as { id: string }).id,
       tags: { connect: tagConnect.map((t) => ({ id: t.id })) },
+      metaTitle: parsed.data.metaTitle || null,
+      ogImage: parsed.data.ogImage || null,
+      canonical: parsed.data.canonical || null,
     },
     include: { author: { select: { name: true } }, tags: { select: { name: true } } },
   });

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { BLOG_POSTS, type BlogPost } from '@/lib/blogPosts';
 
-type Post = BlogPost & { externalUrl?: string };
+type Post = BlogPost & { externalUrl?: string; ogImage?: string };
 
 const ITEMS_PER_PAGE = 9;
 
@@ -310,6 +310,9 @@ export function BlogContent() {
                       }}
                     >
                       <div style={{ height: '3px', background: `linear-gradient(90deg, ${accentColor}, transparent)`, flexShrink: 0 }} />
+                      {post.ogImage && (
+                        <img src={post.ogImage} alt="" style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block', flexShrink: 0 }} />
+                      )}
                       <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                         {/* Tags */}
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
