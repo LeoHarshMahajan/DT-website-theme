@@ -116,7 +116,10 @@ const nextConfig: NextConfig = {
 
   // Environmental variables
   env: {
-    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || "https://thedigitaltriangle.com",
+    // Supabase Storage — anon/publishable key, safe to be in build output
+    SUPABASE_URL: process.env.SUPABASE_URL || "https://pkalrwrnconjnmxxmoxu.supabase.co",
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || "sb_publishable_-LsFvhSJWmksPUwktCP_Gw_8AtoJvoW",
   },
 
   // Turbopack configuration (Next.js 16+ uses Turbopack by default)
