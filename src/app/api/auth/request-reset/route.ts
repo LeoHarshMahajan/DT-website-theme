@@ -5,37 +5,41 @@ const requestResetSchema = z.object({
   email: z.string().email(),
 });
 
+const GENERIC_OK = { message: 'If an account with that email exists, you will receive a password reset link shortly.' };
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email } = requestResetSchema.parse(body);
 
-    // TODO: Implement actual password reset flow
-    // Steps would be:
-    // 1. Check if user exists with this email
-    // 2. Generate a reset token (JWT or random)
-    // 3. Store token in database with expiration (24 hours)
-    // 4. Send email with reset link containing token
-    // 5. Return success message
+    try {
+      const { prisma } = await import('@/lib/db/prisma');
+      const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
 
-    return NextResponse.json(
-      {
-        message:
-          'If an account with that email exists, you will receive a password reset link shortly.',
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: 'Invalid input', errors: error.errors },
-        { status: 400 }
-      );
+      if (user) {
+        const { randomBytes } = await import('crypto');
+        const token = randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        // Atomic: delete old tokens + create new one
+        await prisma.$transaction([
+          prisma.verificationToken.deleteMany({ where: { identifier: email } }),
+          prisma.verificationToken.create({ data: { identifier: email, token, expires } }),
+        ]);
+
+        const { sendPasswordResetEmail } = await import('@/lib/email');
+        await sendPasswordResetEmail(email, token);
+      }
+    } catch (err) {
+      console.error('[request-reset] error:', err);
     }
 
-    return NextResponse.json(
-      { message: 'An error occurred' },
-      { status: 500 }
-    );
+    // Always return the same response — never reveal if email exists
+    return NextResponse.json(GENERIC_OK, { status: 200 });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: 'Invalid input', errors: error.errors }, { status: 400 });
+    }
+    return NextResponse.json({ message: 'An error occurred' }, { status: 500 });
   }
 }

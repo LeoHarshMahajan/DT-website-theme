@@ -1,6 +1,7 @@
 const FROM = 'Digital Triangle <noreply@thedigitaltriangle.com>';
 const NOTIFY = 'hm@digitaltriangle.in';
 const RESEND_URL = 'https://api.resend.com/emails';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://thedigitaltriangle.com';
 
 interface LeadData {
   type?: string;
@@ -115,4 +116,55 @@ export async function sendLeadNotification(lead: LeadData): Promise<void> {
       html,
     }),
   });
+}
+
+export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return;
+
+  const resetUrl = `${SITE_URL}/auth/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#07070a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#07070a;padding:32px 20px;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;">
+        <tr><td style="padding-bottom:24px;">
+          <div style="display:inline-block;background:linear-gradient(135deg,#4b6bff,#8b5cf6);border-radius:8px;padding:8px 14px;">
+            <span style="color:#fff;font-weight:800;font-size:15px;letter-spacing:-0.5px;">DT</span>
+          </div>
+        </td></tr>
+        <tr><td style="background:#0d0d12;border-radius:14px;border:1px solid rgba(255,255,255,0.07);padding:32px;">
+          <h2 style="color:#ffffff;font-size:20px;font-weight:700;margin:0 0 8px;">Reset your password</h2>
+          <p style="color:#8a8a9a;font-size:14px;line-height:1.6;margin:0 0 24px;">
+            We received a request to reset the password for your Digital Triangle account. Click the button below — this link expires in 24 hours.
+          </p>
+          <div style="text-align:center;margin-bottom:24px;">
+            <a href="${resetUrl}" style="display:inline-block;background:linear-gradient(135deg,#4b6bff,#8b5cf6);color:#fff;font-weight:600;font-size:14px;padding:12px 28px;border-radius:9px;text-decoration:none;">
+              Reset password →
+            </a>
+          </div>
+          <p style="color:#525260;font-size:12px;margin:0;">If you didn't request this, you can safely ignore this email. Your password won't change.</p>
+        </td></tr>
+        <tr><td style="padding-top:20px;text-align:center;">
+          <p style="color:#525260;font-size:11px;margin:0;">Digital Triangle · Account security</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const res = await fetch(RESEND_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ from: FROM, to: email, subject: 'Reset your Digital Triangle password', html }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Resend error ${res.status}: ${body}`);
+  }
 }

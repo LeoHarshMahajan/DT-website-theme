@@ -49,6 +49,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       return {
         title: `${dbPost.metaTitle ?? dbPost.title} — Digital Triangle`,
         description: dbPost.metaDescription ?? dbPost.excerpt ?? `Read ${dbPost.title} on the Digital Triangle blog.`,
+        ...(dbPost.ogImage ? {
+          openGraph: {
+            type: 'article' as const,
+            images: [{ url: dbPost.ogImage }],
+            url: `${SITE_URL}/blog/${dbPost.slug}`,
+            siteName: 'Digital Triangle',
+            title: dbPost.metaTitle ?? dbPost.title,
+            description: dbPost.metaDescription ?? dbPost.excerpt ?? '',
+          },
+        } : {}),
+        ...(dbPost.canonical ? { alternates: { canonical: dbPost.canonical } } : {}),
       };
     }
   } catch { /* DB unavailable — fall through to static */ }
