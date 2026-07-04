@@ -59,5 +59,21 @@ export async function POST(request: NextRequest) {
   }
 
   const url = `${supabaseUrl}/storage/v1/object/public/${BUCKET}/${path}`;
+
+  // Save to Media table
+  try {
+    const { prisma } = await import('@/lib/db/prisma');
+    await prisma.media.create({
+      data: {
+        filename: file.name,
+        url,
+        size: file.size,
+        mimeType: file.type,
+      },
+    });
+  } catch (dbErr) {
+    console.warn('[upload] media record not saved:', dbErr);
+  }
+
   return NextResponse.json({ url });
 }

@@ -23,12 +23,15 @@ const navGroups = [
     items: [
       { name: 'Posts', href: '/admin/posts', icon: 'file-text' as const },
       { name: 'Pages', href: '/admin/pages', icon: 'layout' as const },
+      { name: 'Tags', href: '/admin/tags', icon: 'list' as const },
+      { name: 'Media', href: '/admin/media', icon: 'image' as const },
       { name: 'Subscribers', href: '/admin/subscribers', icon: 'users' as const },
     ],
   },
   {
     label: 'System',
     items: [
+      { name: 'Redirects', href: '/admin/redirects', icon: 'link' as const },
       { name: 'Users', href: '/admin/users', icon: 'users' as const },
       { name: 'Settings', href: '/admin/settings', icon: 'settings' as const },
     ],

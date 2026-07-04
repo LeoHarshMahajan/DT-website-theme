@@ -234,6 +234,24 @@ model SiteSettings {
 }
 
 // ============================================================
+// URL REDIRECTS
+// ============================================================
+
+model Redirect {
+  id          String   @id @default(cuid())
+  source      String   @unique // e.g. /old-page
+  destination String            // e.g. /new-page or https://...
+  permanent   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([source])
+  @@index([isActive])
+}
+
+// ============================================================
 // LEADS / FORM SUBMISSIONS
 // ============================================================
 
