@@ -2,6 +2,7 @@
   "name": "digital-triangle",
   "version": "0.1.0",
   "private": true,
+  "author": "Harsh Mahajan (HM) — Creator & Builder <team@digitaltriangle.in>",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
