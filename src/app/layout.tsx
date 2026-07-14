@@ -37,6 +37,9 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     creator: "@digitaltriangle",
   },
+  verification: {
+    google: 'IbE2uBfjNOlGrYua1yDkEu0u18IqbPbOEufYcwMRDaI',
+  },
   robots: {
     index: true,
     follow: true,
