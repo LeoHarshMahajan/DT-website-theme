@@ -19,17 +19,21 @@ export default function RedirectsPage() {
   const [destination, setDestination] = useState('');
   const [permanent, setPermanent] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ created: number; errors: { line: number; error: string }[] } | null>(null);
 
-  useEffect(() => {
+  const reload = () =>
     fetch('/api/admin/redirects')
       .then((r) => r.json())
       .then((d) => setRedirects(d.redirects ?? []))
       .finally(() => setLoading(false));
-  }, []);
+
+  useEffect(() => { reload(); }, []);
 
   const addRedirect = async () => {
     if (!source.trim() || !destination.trim()) return;
-    if (!source.startsWith('/')) return alert('Source must start with /');
     setSaving(true);
     const res = await fetch('/api/admin/redirects', {
       method: 'POST',
@@ -46,6 +50,35 @@ export default function RedirectsPage() {
       alert(data.error || 'Failed to create redirect');
     }
     setSaving(false);
+  };
+
+  // Bulk: one redirect per line, "from -> to" (accepts full URLs; also "from, to" or "from to").
+  const addBulk = async () => {
+    const items = bulkText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [from, to] = line.split(/\s*(?:->|,|\t)\s*|\s+(?=\S+$)/).filter(Boolean);
+        return { source: from, destination: to, permanent };
+      })
+      .filter((r) => r.source && r.destination);
+
+    if (items.length === 0) return alert('Add at least one line as "from -> to"');
+
+    setBulkSaving(true);
+    const res = await fetch('/api/admin/redirects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+    });
+    const data = await res.json();
+    setBulkResult({ created: (data.created ?? []).length, errors: data.errors ?? [] });
+    if (data.created?.length) {
+      setBulkText('');
+      reload();
+    }
+    setBulkSaving(false);
   };
 
   const toggleActive = async (id: string, current: boolean) => {
@@ -74,36 +107,74 @@ export default function RedirectsPage() {
 
       {/* Add form */}
       <div style={{ backgroundColor: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px', marginBottom: '24px' }}>
-        <p style={{ fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--fg-3)', marginBottom: '14px' }}>New Redirect</p>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            placeholder="/old-path"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            style={{ width: '200px', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--line)', backgroundColor: 'var(--bg-2)', color: 'var(--fg-0)', fontSize: '0.85rem', outline: 'none', fontFamily: 'var(--font-mono)' }}
-          />
-          <Icon name="arrow-right" size="sm" style={{ color: 'var(--fg-3)', flexShrink: 0 }} />
-          <input
-            type="text"
-            placeholder="/new-path or https://..."
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addRedirect()}
-            style={{ flex: 1, minWidth: '200px', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--line)', backgroundColor: 'var(--bg-2)', color: 'var(--fg-0)', fontSize: '0.85rem', outline: 'none', fontFamily: 'var(--font-mono)' }}
-          />
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--fg-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            <input type="checkbox" checked={permanent} onChange={(e) => setPermanent(e.target.checked)} />
-            301 Permanent
-          </label>
-          <button
-            onClick={addRedirect}
-            disabled={saving || !source.trim() || !destination.trim()}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', background: 'var(--brand-blue)', color: '#fff', border: 'none', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', opacity: saving || !source.trim() || !destination.trim() ? 0.5 : 1 }}
-          >
-            <Icon name="plus" size="sm" /> Add
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+          <p style={{ fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--fg-3)', margin: 0 }}>New Redirect</p>
+          <button onClick={() => setBulkOpen((v) => !v)}
+            style={{ fontSize: '0.78rem', color: 'var(--brand-blue)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+            {bulkOpen ? 'Single redirect' : 'Bulk import'}
           </button>
         </div>
+
+        {!bulkOpen ? (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="/old-path or https://thedigitaltriangle.com/old-path"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              style={{ width: '260px', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--line)', backgroundColor: 'var(--bg-2)', color: 'var(--fg-0)', fontSize: '0.85rem', outline: 'none', fontFamily: 'var(--font-mono)' }}
+            />
+            <Icon name="arrow-right" size="sm" style={{ color: 'var(--fg-3)', flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="/new-path or https://..."
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addRedirect()}
+              style={{ flex: 1, minWidth: '200px', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--line)', backgroundColor: 'var(--bg-2)', color: 'var(--fg-0)', fontSize: '0.85rem', outline: 'none', fontFamily: 'var(--font-mono)' }}
+            />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--fg-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <input type="checkbox" checked={permanent} onChange={(e) => setPermanent(e.target.checked)} />
+              301 Permanent
+            </label>
+            <button
+              onClick={addRedirect}
+              disabled={saving || !source.trim() || !destination.trim()}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', background: 'var(--brand-blue)', color: '#fff', border: 'none', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', opacity: saving || !source.trim() || !destination.trim() ? 0.5 : 1 }}
+            >
+              <Icon name="plus" size="sm" /> Add
+            </button>
+          </div>
+        ) : (
+          <div>
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder={'One per line:\nhttps://thedigitaltriangle.com/old-page -> /new-page\n/old-2 -> https://thedigitaltriangle.com/new-2'}
+              rows={6}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', backgroundColor: 'var(--bg-2)', color: 'var(--fg-0)', fontSize: '0.82rem', outline: 'none', fontFamily: 'var(--font-mono)', resize: 'vertical', boxSizing: 'border-box' }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--fg-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={permanent} onChange={(e) => setPermanent(e.target.checked)} />
+                301 Permanent (applies to all)
+              </label>
+              <button
+                onClick={addBulk}
+                disabled={bulkSaving || !bulkText.trim()}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', background: 'var(--brand-blue)', color: '#fff', border: 'none', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', opacity: bulkSaving || !bulkText.trim() ? 0.5 : 1 }}
+              >
+                <Icon name="plus" size="sm" /> {bulkSaving ? 'Importing…' : 'Import all'}
+              </button>
+            </div>
+            {bulkResult && (
+              <p style={{ fontSize: '0.8rem', color: bulkResult.errors.length ? '#f59e0b' : '#22c55e', marginTop: '10px' }}>
+                {bulkResult.created} created
+                {bulkResult.errors.length > 0 && ` · ${bulkResult.errors.length} skipped: ${bulkResult.errors.map((e) => `line ${e.line} (${e.error})`).join(', ')}`}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Table */}

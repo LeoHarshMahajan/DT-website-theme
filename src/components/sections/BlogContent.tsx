@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { BLOG_POSTS, type BlogPost } from '@/lib/blogPosts';
+import { CATEGORY_BY_SLUG } from '@/lib/constants';
 
-type Post = BlogPost & { externalUrl?: string; ogImage?: string };
+type Post = BlogPost & { externalUrl?: string; ogImage?: string; coverImage?: string; category?: string };
 
 const ITEMS_PER_PAGE = 9;
 
@@ -37,9 +38,28 @@ export function BlogContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<{ slug: string; count: number }[]>([]);
   // null = unknown, true = DB has posts, false = DB is empty → use static fallback
   const dbHasPosts = useRef<boolean | null>(null);
+  // Gates the fetch-trigger effect until the URL read below has applied —
+  // otherwise it fires once with empty filters, then again once the URL
+  // params land, wasting a request and flashing unfiltered content.
+  const [ready, setReady] = useState(false);
+
+  // Read initial filters from the URL (?category= / ?tag= / ?search=) so links
+  // from the Insights topic cards and blog-post chips land pre-filtered.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const cat = sp.get('category') ?? '';
+    const tg = sp.get('tag') ?? '';
+    const q = sp.get('search') ?? '';
+    if (cat) setSelectedCategory(cat);
+    if (tg) setSelectedTag(tg);
+    if (q) { setSearchQuery(q); setDebouncedSearch(q); }
+    setReady(true);
+  }, []);
 
   // Debounce search
   useEffect(() => {
@@ -47,18 +67,31 @@ export function BlogContent() {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  const fetchPosts = useCallback(async (page: number, tag: string, search: string) => {
+  const fetchPosts = useCallback(async (page: number, tag: string, search: string, category: string) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: String(ITEMS_PER_PAGE) });
-      if (tag)    params.set('tag', tag);
-      if (search) params.set('search', search);
+      if (tag)      params.set('tag', tag);
+      if (search)   params.set('search', search);
+      if (category) params.set('category', category);
 
       const res = await fetch(`/api/posts?${params}`, { cache: 'no-store' });
       if (!res.ok) throw new Error();
       const data = await res.json();
 
-      const isFirstUnfiltered = page === 1 && !tag && !search;
+      const isFirstUnfiltered = page === 1 && !tag && !search && !category;
+
+      // Matches a static post against the active category by whole-word overlap
+      // with the category label (word-boundary, not substring — "ai" must not
+      // match inside "email").
+      const catMatches = (p: BlogPost) => {
+        const c = CATEGORY_BY_SLUG[category];
+        if (!c) return true;
+        const labelWords = new Set(c.label.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+        return p.tags.some((t) =>
+          t.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).some((w) => labelWords.has(w))
+        );
+      };
 
       if (!data.posts || data.posts.length === 0) {
         // On first unfiltered load: record that DB is empty and use static fallback
@@ -66,7 +99,9 @@ export function BlogContent() {
         if (isFirstUnfiltered) dbHasPosts.current = false;
 
         if (dbHasPosts.current === false) {
-          const mock = tag
+          const mock = category
+            ? BLOG_POSTS.filter(catMatches)
+            : tag
             ? BLOG_POSTS.filter((p) => p.tags.includes(tag))
             : search
             ? BLOG_POSTS.filter((p) =>
@@ -93,6 +128,9 @@ export function BlogContent() {
       } else if (!availableTags.length) {
         setAvailableTags(mockTagsFromPosts(BLOG_POSTS));
       }
+      if (data.availableCategories?.length) {
+        setAvailableCategories(data.availableCategories);
+      }
     } catch {
       // Network error fallback — use static data
       const mock = selectedTag
@@ -108,11 +146,21 @@ export function BlogContent() {
   }, []);
 
   useEffect(() => {
-    fetchPosts(currentPage, selectedTag, debouncedSearch);
-  }, [currentPage, selectedTag, debouncedSearch, fetchPosts]);
+    if (!ready) return;
+    fetchPosts(currentPage, selectedTag, debouncedSearch, selectedCategory);
+  }, [ready, currentPage, selectedTag, debouncedSearch, selectedCategory, fetchPosts]);
 
   const handleTagClick = (tag: string) => {
     setSelectedTag((prev) => (prev === tag ? '' : tag));
+    setSelectedCategory('');
+    setCurrentPage(1);
+    setSearchQuery('');
+    setDebouncedSearch('');
+  };
+
+  const handleCategoryClick = (slug: string) => {
+    setSelectedCategory((prev) => (prev === slug ? '' : slug));
+    setSelectedTag('');
     setCurrentPage(1);
     setSearchQuery('');
     setDebouncedSearch('');
@@ -120,6 +168,7 @@ export function BlogContent() {
 
   const clearFilters = () => {
     setSelectedTag('');
+    setSelectedCategory('');
     setSearchQuery('');
     setDebouncedSearch('');
     setCurrentPage(1);
@@ -128,7 +177,8 @@ export function BlogContent() {
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const isFiltered = !!selectedTag || !!debouncedSearch;
+  const isFiltered = !!selectedTag || !!selectedCategory || !!debouncedSearch;
+  const activeCat = selectedCategory ? CATEGORY_BY_SLUG[selectedCategory] : undefined;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-0)', paddingTop: '64px' }}>
@@ -188,6 +238,53 @@ export function BlogContent() {
         </div>
       </section>
 
+      {/* ── Category Filter Bar ── */}
+      {availableCategories.length > 0 && (
+        <section style={{ borderBottom: '1px solid var(--line)', backgroundColor: 'var(--bg-1)' }}>
+          <div className="shell" style={{ padding: '16px 0', overflowX: 'auto' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap', minWidth: 'max-content' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fg-3)', marginRight: '4px', fontFamily: 'var(--font-mono)' }}>Categories</span>
+              <button
+                onClick={clearFilters}
+                style={{
+                  padding: '6px 16px', borderRadius: '999px', border: '1px solid',
+                  fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
+                  fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                  borderColor: !selectedCategory && !selectedTag ? 'var(--brand-blue)' : 'var(--line)',
+                  backgroundColor: !selectedCategory && !selectedTag ? 'var(--brand-blue)' : 'transparent',
+                  color: !selectedCategory && !selectedTag ? '#fff' : 'var(--fg-2)',
+                }}
+              >
+                All
+              </button>
+              {availableCategories.map(({ slug, count }) => {
+                const c = CATEGORY_BY_SLUG[slug];
+                if (!c) return null;
+                const active = selectedCategory === slug;
+                return (
+                  <button
+                    key={slug}
+                    onClick={() => handleCategoryClick(slug)}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      padding: '6px 14px', borderRadius: '999px', border: '1px solid',
+                      fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
+                      fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                      borderColor: active ? c.color : 'var(--line)',
+                      backgroundColor: active ? c.color : 'transparent',
+                      color: active ? '#fff' : 'var(--fg-2)',
+                    }}
+                  >
+                    <span aria-hidden>{c.icon}</span> {c.label}
+                    <span style={{ opacity: 0.7, fontSize: '0.7rem' }}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── Tag Filter Bar ── */}
       {availableTags.length > 0 && (
         <section style={{ borderBottom: '1px solid var(--line)', backgroundColor: 'var(--bg-1)' }}>
@@ -241,6 +338,16 @@ export function BlogContent() {
           {isFiltered && (
             <Reveal direction="up">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                {activeCat && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px', borderRadius: '999px', backgroundColor: activeCat.color + '15', border: `1px solid ${activeCat.color}30` }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: '700', color: activeCat.color }}>
+                      {activeCat.icon} {activeCat.label}
+                    </span>
+                    <button onClick={() => { setSelectedCategory(''); setCurrentPage(1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: activeCat.color, padding: '0 0 0 2px', display: 'flex', alignItems: 'center', lineHeight: 1 }}>
+                      ×
+                    </button>
+                  </div>
+                )}
                 {selectedTag && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px', borderRadius: '999px', backgroundColor: (TAG_COLORS[selectedTag] ?? '#4b6bff') + '15', border: `1px solid ${TAG_COLORS[selectedTag] ?? '#4b6bff'}30` }}>
                     <span style={{ fontSize: '0.78rem', fontWeight: '600', color: TAG_COLORS[selectedTag] ?? '#4b6bff' }}>
@@ -295,7 +402,9 @@ export function BlogContent() {
             <Reveal direction="up" delay={0.06}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }} className="posts-grid">
                 {posts.map((post, index) => {
-                  const accentColor = TAG_COLORS[post.tags[0]] ?? 'var(--brand-blue)';
+                  const cardCat = post.category ? CATEGORY_BY_SLUG[post.category] : undefined;
+                  const accentColor = cardCat?.color ?? TAG_COLORS[post.tags[0]] ?? 'var(--brand-blue)';
+                  const cover = post.coverImage || post.ogImage;
                   return (
                     <Link
                       key={post.id}
@@ -310,21 +419,31 @@ export function BlogContent() {
                       }}
                     >
                       <div style={{ height: '3px', background: `linear-gradient(90deg, ${accentColor}, transparent)`, flexShrink: 0 }} />
-                      {post.ogImage && (
-                        <img src={post.ogImage} alt="" style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block', flexShrink: 0 }} />
+                      {cover && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={cover} alt="" style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block', flexShrink: 0 }} />
                       )}
                       <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                        {/* Tags */}
+                        {/* Category (highlighted) or tags fallback */}
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                          {post.tags.slice(0, 2).map((tag) => (
-                            <span key={tag} style={{
-                              padding: '3px 9px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: '600',
+                          {cardCat ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '3px 10px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: '800',
                               fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', textTransform: 'uppercase',
-                              backgroundColor: (TAG_COLORS[tag] ?? 'var(--brand-blue)') + '15',
-                              border: `1px solid ${(TAG_COLORS[tag] ?? 'var(--brand-blue)')}30`,
-                              color: TAG_COLORS[tag] ?? 'var(--brand-blue)',
-                            }}>{tag}</span>
-                          ))}
+                              backgroundColor: cardCat.color, color: '#fff',
+                            }}><span aria-hidden>{cardCat.icon}</span>{cardCat.label}</span>
+                          ) : (
+                            post.tags.slice(0, 2).map((tag) => (
+                              <span key={tag} style={{
+                                padding: '3px 9px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: '600',
+                                fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', textTransform: 'uppercase',
+                                backgroundColor: (TAG_COLORS[tag] ?? 'var(--brand-blue)') + '15',
+                                border: `1px solid ${(TAG_COLORS[tag] ?? 'var(--brand-blue)')}30`,
+                                color: TAG_COLORS[tag] ?? 'var(--brand-blue)',
+                              }}>{tag}</span>
+                            ))
+                          )}
                         </div>
 
                         {/* Title */}

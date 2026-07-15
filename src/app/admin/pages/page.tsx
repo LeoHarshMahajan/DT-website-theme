@@ -28,6 +28,30 @@ function timeAgo(iso: string) {
   return `${d} days ago`;
 }
 
+// Static (code-defined) site routes — not editable here, but listed so the
+// "Pages" screen reflects every page on the site, not just CMS-authored ones.
+const SITE_ROUTES = [
+  { path: '/', title: 'Home' },
+  { path: '/about', title: 'About' },
+  { path: '/solutions', title: 'Solutions' },
+  { path: '/solutions/organic-growth', title: 'Solutions — Organic Growth' },
+  { path: '/solutions/performance', title: 'Solutions — Performance' },
+  { path: '/solutions/ai-automation', title: 'Solutions — AI & Automation' },
+  { path: '/solutions/content-social', title: 'Solutions — Content & Social' },
+  { path: '/solutions/analytics', title: 'Solutions — Analytics' },
+  { path: '/solutions/retention', title: 'Solutions — Retention' },
+  { path: '/solutions/brand-creative', title: 'Solutions — Brand & Creative' },
+  { path: '/industries', title: 'Industries' },
+  { path: '/case-studies', title: 'Case Studies' },
+  { path: '/insights', title: 'Insights' },
+  { path: '/blog', title: 'Blog' },
+  { path: '/pricing', title: 'Pricing' },
+  { path: '/contact', title: 'Contact' },
+  { path: '/book-consultation', title: 'Book Consultation' },
+  { path: '/free-growth-audit', title: 'Free Growth Audit' },
+  { path: '/search-engine-optimization', title: 'SEO' },
+];
+
 // ─── Page Form ────────────────────────────────────────────────────────────────
 function PageForm({
   page,
@@ -423,6 +447,32 @@ export default function AdminPagesPage() {
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* Site routes — read-only reference so every page on the site is listed here,
+          not just CMS-authored ones. These are built into the code and aren't editable. */}
+      <div style={{ marginTop: '40px' }}>
+        <h2 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--fg-0)', margin: '0 0 4px' }}>Site Pages</h2>
+        <p style={{ fontSize: '0.82rem', color: 'var(--fg-3)', margin: '0 0 16px' }}>
+          Built-in pages on the site. These ship with the code and aren&rsquo;t edited here — use them to see everything that&rsquo;s live.
+        </p>
+        <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '14px', border: '1px solid var(--line)', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              {SITE_ROUTES.map((r, i) => (
+                <tr key={r.path} style={{ borderBottom: i < SITE_ROUTES.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                  <td style={{ padding: '10px 20px', fontSize: '0.88rem', color: 'var(--fg-0)', fontWeight: 500 }}>{r.title}</td>
+                  <td style={{ padding: '10px 20px', fontSize: '0.82rem', color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>{r.path}</td>
+                  <td style={{ padding: '10px 20px', textAlign: 'right' }}>
+                    <a href={r.path} target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '7px', border: '1px solid var(--line)', backgroundColor: 'var(--bg-2)', color: 'var(--fg-2)', textDecoration: 'none', fontSize: '0.8rem' }}
+                      title="View">↗</a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

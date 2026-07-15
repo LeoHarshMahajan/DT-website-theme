@@ -4,6 +4,7 @@ import { Metadata } from 'next';
 import { POST_BY_SLUG, BLOG_POSTS, type BlogPost } from '@/lib/blogPosts';
 import { BLOG_CONTENT } from '@/lib/blogContent';
 import { getPostBySlug, getRelatedPosts } from '@/lib/db/queries';
+import { CATEGORY_BY_SLUG } from '@/lib/constants';
 import { Footer } from '@/components/Footer';
 import { Reveal } from '@/components/ui/Reveal';
 
@@ -36,7 +37,9 @@ interface RenderPost {
   author: { name: string };
   createdAt: string;
   tags: string[];
-  content: string; // HTML body
+  category: string;      // category slug, '' if none
+  coverImage: string;    // '' if none
+  content: string;       // HTML body
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -46,13 +49,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const dbPost = await getPostBySlug(slug);
     if (dbPost && dbPost.status === 'PUBLISHED') {
+      const ogImg = dbPost.ogImage ?? dbPost.coverImage ?? null;
       return {
         title: `${dbPost.metaTitle ?? dbPost.title} — Digital Triangle`,
         description: dbPost.metaDescription ?? dbPost.excerpt ?? `Read ${dbPost.title} on the Digital Triangle blog.`,
-        ...(dbPost.ogImage ? {
+        ...(ogImg ? {
           openGraph: {
             type: 'article' as const,
-            images: [{ url: dbPost.ogImage }],
+            images: [{ url: ogImg }],
             url: `${SITE_URL}/blog/${dbPost.slug}`,
             siteName: 'Digital Triangle',
             title: dbPost.metaTitle ?? dbPost.title,
@@ -60,6 +64,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           },
         } : {}),
         ...(dbPost.canonical ? { alternates: { canonical: dbPost.canonical } } : {}),
+        robots: {
+          index: !dbPost.noindex,
+          follow: !dbPost.nofollow,
+        },
       };
     }
   } catch { /* DB unavailable — fall through to static */ }
@@ -77,7 +85,7 @@ export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
 
   let post: RenderPost | null = null;
-  let relatedPosts: BlogPost[] = [];
+  let relatedPosts: (BlogPost & { category?: string })[] = [];
 
   // 1. Try DB
   try {
@@ -91,6 +99,8 @@ export default async function BlogPostPage({ params }: Props) {
         author: { name: dbPost.author?.name ?? 'Digital Triangle' },
         createdAt: (dbPost.publishedAt ?? dbPost.createdAt).toISOString(),
         tags: dbPost.tags.map((t: { name: string }) => t.name),
+        category: dbPost.category ?? '',
+        coverImage: dbPost.coverImage ?? dbPost.ogImage ?? '',
         content: dbPost.content ?? '',
       };
 
@@ -105,6 +115,7 @@ export default async function BlogPostPage({ params }: Props) {
         author: { name: r.author?.name ?? 'Digital Triangle', email: '' },
         createdAt: (r.publishedAt ?? r.createdAt).toISOString(),
         tags: (r.tags ?? []).map((t: { name: string }) => t.name),
+        category: r.category ?? '',
       }));
     }
   } catch { /* DB unavailable */ }
@@ -122,6 +133,8 @@ export default async function BlogPostPage({ params }: Props) {
       author: staticPost.author,
       createdAt: staticPost.createdAt,
       tags: staticPost.tags,
+      category: '',
+      coverImage: (staticPost as { ogImage?: string }).ogImage ?? '',
       content: BLOG_CONTENT[slug] ?? '',
     };
 
@@ -130,7 +143,8 @@ export default async function BlogPostPage({ params }: Props) {
       .slice(0, 3);
   }
 
-  const accentColor = TAG_COLORS[post.tags[0]] ?? 'var(--brand-blue)';
+  const cat = post.category ? CATEGORY_BY_SLUG[post.category] : undefined;
+  const accentColor = cat?.color ?? TAG_COLORS[post.tags[0]] ?? 'var(--brand-blue)';
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -164,23 +178,38 @@ export default async function BlogPostPage({ params }: Props) {
               </Link>
             </Reveal>
 
-            {/* Tags */}
+            {/* Category (highlighted) + tags — all clickable */}
             <Reveal direction="up" delay={0.06}>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', alignItems: 'center' }}>
+                {cat && (
+                  <Link
+                    href={`/blog?category=${cat.slug}`}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      padding: '5px 14px', borderRadius: '999px',
+                      fontSize: '0.72rem', fontWeight: '800',
+                      fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase',
+                      backgroundColor: cat.color, color: '#fff', textDecoration: 'none',
+                    }}
+                  >
+                    <span aria-hidden>{cat.icon}</span> {cat.label}
+                  </Link>
+                )}
                 {post.tags.map(tag => (
-                  <span
+                  <Link
                     key={tag}
+                    href={`/blog?tag=${encodeURIComponent(tag)}`}
                     style={{
                       padding: '4px 12px', borderRadius: '999px',
                       fontSize: '0.7rem', fontWeight: '700',
                       fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase',
                       backgroundColor: (TAG_COLORS[tag] ?? accentColor) + '18',
                       border: `1px solid ${(TAG_COLORS[tag] ?? accentColor)}35`,
-                      color: TAG_COLORS[tag] ?? accentColor,
+                      color: TAG_COLORS[tag] ?? accentColor, textDecoration: 'none',
                     }}
                   >
                     {tag}
-                  </span>
+                  </Link>
                 ))}
               </div>
             </Reveal>
@@ -230,6 +259,24 @@ export default async function BlogPostPage({ params }: Props) {
           </div>
         </section>
 
+        {/* ── Cover image ── */}
+        {post.coverImage && (
+          <div className="shell" style={{ marginTop: 'clamp(-28px, -3vw, -40px)', position: 'relative', zIndex: 2 }}>
+            <Reveal direction="up" delay={0.04}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.coverImage}
+                alt={post.title}
+                style={{
+                  width: '100%', maxHeight: '440px', objectFit: 'cover',
+                  borderRadius: '18px', border: '1px solid var(--line)',
+                  boxShadow: '0 24px 60px rgba(0,0,0,0.28)', display: 'block',
+                }}
+              />
+            </Reveal>
+          </div>
+        )}
+
         {/* ── Body ── */}
         <section style={{ padding: 'clamp(48px, 7vw, 80px) 0' }}>
           <div className="shell">
@@ -240,21 +287,6 @@ export default async function BlogPostPage({ params }: Props) {
 
               {/* Main column */}
               <div>
-                {/* Excerpt / intro */}
-                {post.description && (
-                  <Reveal direction="up" delay={0.06}>
-                    <p
-                      style={{
-                        fontSize: 'clamp(1.05rem, 1.8vw, 1.2rem)', lineHeight: 1.8,
-                        color: 'var(--fg-1)', marginBottom: '40px',
-                        paddingBottom: '40px', borderBottom: '1px solid var(--line)',
-                      }}
-                    >
-                      {post.description}
-                    </p>
-                  </Reveal>
-                )}
-
                 {/* Article body */}
                 {post.content ? (
                   <div
@@ -284,18 +316,19 @@ export default async function BlogPostPage({ params }: Props) {
                     </p>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       {post.tags.map(tag => (
-                        <span
+                        <Link
                           key={tag}
+                          href={`/blog?tag=${encodeURIComponent(tag)}`}
                           style={{
                             padding: '5px 12px', borderRadius: '999px',
-                            fontSize: '0.75rem', fontWeight: 600,
+                            fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none',
                             backgroundColor: (TAG_COLORS[tag] ?? accentColor) + '15',
                             border: `1px solid ${(TAG_COLORS[tag] ?? accentColor)}30`,
                             color: TAG_COLORS[tag] ?? accentColor,
                           }}
                         >
                           {tag}
-                        </span>
+                        </Link>
                       ))}
                     </div>
                   </div>
@@ -372,7 +405,8 @@ export default async function BlogPostPage({ params }: Props) {
                   </h2>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }} className="related-grid">
                     {relatedPosts.map(r => {
-                      const rc = TAG_COLORS[r.tags[0]] ?? 'var(--brand-blue)';
+                      const rCat = r.category ? CATEGORY_BY_SLUG[r.category] : undefined;
+                      const rc = rCat?.color ?? TAG_COLORS[r.tags[0]] ?? 'var(--brand-blue)';
                       return (
                         <Link
                           key={r.id}
@@ -388,9 +422,13 @@ export default async function BlogPostPage({ params }: Props) {
                           <div style={{ height: '3px', background: `linear-gradient(90deg, ${rc}, transparent)` }} />
                           <div style={{ padding: '20px' }}>
                             <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                              {r.tags.slice(0, 2).map(t => (
-                                <span key={t} style={{ fontSize: '0.65rem', fontWeight: 700, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', color: TAG_COLORS[t] ?? rc, backgroundColor: (TAG_COLORS[t] ?? rc) + '15', padding: '2px 8px', borderRadius: '999px' }}>{t}</span>
-                              ))}
+                              {rCat ? (
+                                <span style={{ fontSize: '0.65rem', fontWeight: 800, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#fff', backgroundColor: rCat.color, padding: '2px 8px', borderRadius: '999px' }}>{rCat.label}</span>
+                              ) : (
+                                r.tags.slice(0, 2).map(t => (
+                                  <span key={t} style={{ fontSize: '0.65rem', fontWeight: 700, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', color: TAG_COLORS[t] ?? rc, backgroundColor: (TAG_COLORS[t] ?? rc) + '15', padding: '2px 8px', borderRadius: '999px' }}>{t}</span>
+                                ))
+                              )}
                             </div>
                             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--fg-0)', lineHeight: 1.4, marginBottom: '8px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                               {r.title}

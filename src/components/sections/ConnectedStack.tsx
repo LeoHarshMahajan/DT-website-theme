@@ -14,8 +14,8 @@ const SYSTEMS = [
   { id: 'auto',     name: 'Automation',label: 'Automation',    angle: 315, color: '#6366f1', desc: 'Cross-channel workflow automation so your marketing runs while you sleep.' },
 ];
 
-const RADIUS = 150; // orbit radius in px
-const CENTER = 190; // center of the SVG container
+const RADIUS = 205; // orbit radius in px
+const CENTER = 250; // center of the SVG container
 
 function toXY(angle: number, r = RADIUS, cx = CENTER, cy = CENTER) {
   const rad = (angle - 90) * (Math.PI / 180);
@@ -43,15 +43,15 @@ export function ConnectedStack() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '64px', alignItems: 'center' }}>
 
           {/* ── Text header ── */}
-          <div style={{ textAlign: 'center', maxWidth: '680px', margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', maxWidth: '920px', margin: '0 auto' }}>
             <Reveal direction="up" delay={0.05}>
               <p style={{ fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--brand-blue)', marginBottom: '14px' }}>
                 THE SYSTEM
               </p>
             </Reveal>
             <Reveal direction="up" delay={0.12}>
-              <h2 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.03em', color: 'var(--fg-0)', marginBottom: '20px' }}>
-                One connected stack —<br />
+              <h2 style={{ fontSize: 'clamp(1.7rem, 3.6vw, 2.9rem)', fontWeight: 700, lineHeight: 1.12, letterSpacing: '-0.03em', color: 'var(--fg-0)', marginBottom: '20px', textWrap: 'balance' }}>
+                One connected stack —{' '}
                 <span style={{ color: 'var(--fg-2)' }}>not a list of services.</span>
               </h2>
             </Reveal>
@@ -67,7 +67,7 @@ export function ConnectedStack() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '40px', flexWrap: 'wrap' }}>
 
             {/* Orbit diagram */}
-            <div ref={orbitRef} style={{
+            <div ref={orbitRef} className="orbit-diagram" style={{
               position: 'relative', width: `${CENTER * 2}px`, height: `${CENTER * 2}px`, flexShrink: 0,
               opacity: orbitVisible ? 1 : 0,
               transition: 'opacity 0.8s ease',
@@ -95,15 +95,15 @@ export function ConnectedStack() {
                 position: 'absolute',
                 left: `${CENTER}px`, top: `${CENTER}px`,
                 transform: 'translate(-50%, -50%)',
-                width: '88px', height: '88px', borderRadius: '50%',
+                width: '108px', height: '108px', borderRadius: '50%',
                 background: 'linear-gradient(135deg, rgba(75,107,255,0.25), rgba(139,92,246,0.2))',
                 border: '1.5px solid rgba(75,107,255,0.4)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 0 40px rgba(75,107,255,0.25), 0 0 80px rgba(75,107,255,0.1)',
                 zIndex: 2,
               }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--fg-0)', letterSpacing: '-0.02em' }}>DT Core</span>
-                <span style={{ fontSize: '0.55rem', color: 'var(--fg-3)', letterSpacing: '0.06em', marginTop: '2px' }}>AI orchestration</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--fg-0)', letterSpacing: '-0.02em' }}>DT Core</span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--fg-3)', letterSpacing: '0.06em', marginTop: '2px' }}>AI orchestration</span>
                 {/* Pulse rings */}
                 <div style={{
                   position: 'absolute', inset: '-12px', borderRadius: '50%',
@@ -129,7 +129,7 @@ export function ConnectedStack() {
                       position: 'absolute',
                       left: `${x}px`, top: `${y}px`,
                       transform: 'translate(-50%, -50%)',
-                      width: '52px', height: '52px', borderRadius: '50%',
+                      width: '64px', height: '64px', borderRadius: '50%',
                       backgroundColor: isActive ? s.color : 'var(--bg-2)',
                       border: `1.5px solid ${isActive ? s.color : 'var(--line-strong)'}`,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -137,10 +137,10 @@ export function ConnectedStack() {
                       transition: 'all 0.25s ease',
                       boxShadow: isActive ? `0 0 20px ${s.color}55, 0 0 40px ${s.color}22` : 'none',
                     }}>
-                    <span style={{ fontSize: '0.6rem', fontWeight: '700', color: isActive ? 'white' : 'var(--fg-1)', lineHeight: 1.2, textAlign: 'center', padding: '0 4px' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: '700', color: isActive ? 'white' : 'var(--fg-1)', lineHeight: 1.2, textAlign: 'center', padding: '0 4px' }}>
                       {s.name}
                     </span>
-                    <span style={{ fontSize: '0.5rem', color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--fg-3)', marginTop: '2px' }}>
+                    <span style={{ fontSize: '0.54rem', color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--fg-3)', marginTop: '2px' }}>
                       {s.label}
                     </span>
                   </div>
@@ -239,6 +239,8 @@ export function ConnectedStack() {
           100% { transform: scale(1.5); opacity: 0; }
         }
         @media (max-width: 640px) { .metrics-grid { grid-template-columns: repeat(2,1fr) !important; } }
+        @media (max-width: 560px) { .orbit-diagram { transform: scale(0.72); margin: -70px 0; } }
+        @media (max-width: 400px) { .orbit-diagram { transform: scale(0.6); margin: -100px 0; } }
       `}</style>
     </section>
   );

@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useRef } from 'react';
+import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 
 const SYSTEMS = [
   {
     id: 'organic',
+    href: '/solutions/organic-growth',
     eyebrow: 'SEO · AEO · GEO',
     category: 'ORGANIC GROWTH',
     title: 'Organic Growth',
@@ -22,6 +24,7 @@ const SYSTEMS = [
   },
   {
     id: 'performance',
+    href: '/solutions/performance',
     eyebrow: 'PAID ACQUISITION',
     category: 'PERFORMANCE GROWTH',
     title: 'Performance Growth',
@@ -39,6 +42,7 @@ const SYSTEMS = [
   },
   {
     id: 'ai',
+    href: '/solutions/ai-automation',
     eyebrow: 'MARKETING INTELLIGENCE',
     category: 'AI & AUTOMATION',
     title: 'AI & Automation',
@@ -55,6 +59,7 @@ const SYSTEMS = [
   },
   {
     id: 'content',
+    href: '/solutions/content-social',
     eyebrow: 'ATTENTION SYSTEMS',
     category: 'CONTENT & SOCIAL',
     title: 'Content & Social',
@@ -70,6 +75,7 @@ const SYSTEMS = [
   },
   {
     id: 'analytics',
+    href: '/solutions/analytics',
     eyebrow: 'DATA & INTELLIGENCE',
     category: 'ANALYTICS',
     title: 'Analytics & BI',
@@ -85,6 +91,7 @@ const SYSTEMS = [
   },
   {
     id: 'lifecycle',
+    href: '/solutions/retention',
     eyebrow: 'RETENTION & CRM',
     category: 'LIFECYCLE',
     title: 'Lifecycle & CRM',
@@ -101,6 +108,7 @@ const SYSTEMS = [
   },
   {
     id: 'creative',
+    href: '/solutions/brand-creative',
     eyebrow: 'BRAND & DESIGN',
     category: 'CREATIVE SYSTEMS',
     title: 'Creative Systems',
@@ -163,8 +171,9 @@ export function SystemsGrid() {
           }}
         >
           {SYSTEMS.map((sys, i) => (
-            <div
+            <Link
               key={sys.id}
+              href={sys.href}
               style={{
                 flexShrink: 0,
                 width: 'clamp(240px, 26vw, 290px)',
@@ -174,6 +183,7 @@ export function SystemsGrid() {
                 flexDirection: 'column',
                 gap: '0',
                 cursor: 'pointer',
+                textDecoration: 'none',
                 transition: 'all 0.25s ease',
                 border: '1px solid',
                 ...(sys.featured
@@ -269,7 +279,7 @@ export function SystemsGrid() {
                   {sys.metric}
                 </p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
 

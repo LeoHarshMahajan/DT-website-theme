@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
+import { BLOG_CATEGORIES } from '@/lib/constants';
 
 interface Post {
   id: string;
@@ -13,9 +14,13 @@ interface Post {
   content: string;
   tags: string[] | string;
   tagsString?: string;
+  category?: string;
+  coverImage?: string;
   metaTitle?: string;
   ogImage?: string;
   canonical?: string;
+  noindex?: boolean;
+  nofollow?: boolean;
   published: boolean;
   status?: string;
   createdAt: string;
@@ -55,13 +60,40 @@ function PostForm({
     description: post?.description ?? '',
     content: post?.content ?? '',
     tags: post?.tagsString ?? (Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags ?? '')),
+    category: post?.category ?? '',
+    coverImage: post?.coverImage ?? '',
     metaTitle: post?.metaTitle ?? '',
     ogImage: post?.ogImage ?? '',
     canonical: post?.canonical ?? '',
+    noindex: post?.noindex ?? false,
+    nofollow: post?.nofollow ?? false,
     published: post?.published ?? false,
   });
 
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const set = (k: string, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handleCoverUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        set('coverImage', data.url);
+      } else {
+        alert(data.error || 'Upload failed. Paste an image URL instead.');
+      }
+    } catch {
+      alert('Upload failed. Paste an image URL instead.');
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
 
   const handleTitleChange = (v: string) => {
     setForm((f) => ({
@@ -289,6 +321,66 @@ function PostForm({
             )}
           </div>
 
+          {/* Category */}
+          <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '14px', padding: '20px', border: '1px solid var(--line)' }}>
+            <label style={labelStyle}>Category</label>
+            <select
+              value={form.category}
+              onChange={(e) => set('category', e.target.value)}
+              style={{ ...inputStyle, cursor: 'pointer', appearance: 'auto' }}
+            >
+              <option value="">— Select a category —</option>
+              {BLOG_CATEGORIES.map((c) => (
+                <option key={c.slug} value={c.slug}>{c.label}</option>
+              ))}
+            </select>
+            <p style={{ fontSize: '0.75rem', color: 'var(--fg-3)', marginTop: '8px' }}>
+              Highlighted on the article and used to pick related posts.
+            </p>
+          </div>
+
+          {/* Cover image */}
+          <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '14px', padding: '20px', border: '1px solid var(--line)' }}>
+            <label style={labelStyle}>Cover Image</label>
+            {form.coverImage && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.coverImage} alt="" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '10px', marginBottom: '10px', border: '1px solid var(--line)' }} />
+            )}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                style={{ flex: 1, padding: '9px', borderRadius: '9px', border: '1px solid var(--line)', backgroundColor: 'var(--bg-2)', color: 'var(--fg-1)', fontSize: '0.82rem', fontWeight: 600, cursor: uploading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                <Icon name="image" size="sm" />
+                {uploading ? 'Uploading…' : form.coverImage ? 'Replace' : 'Upload image'}
+              </button>
+              {form.coverImage && (
+                <button type="button" onClick={() => set('coverImage', '')}
+                  style={{ padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--line)', backgroundColor: 'transparent', color: 'var(--fg-3)', fontSize: '0.82rem', cursor: 'pointer' }}>
+                  Remove
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f); }}
+            />
+            <input
+              type="url"
+              value={form.coverImage}
+              onChange={(e) => set('coverImage', e.target.value)}
+              placeholder="…or paste an image URL"
+              style={inputStyle}
+              onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
+              onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
+            />
+          </div>
+
           {/* SEO */}
           <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '14px', padding: '20px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <p style={{ fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--fg-3)', margin: 0 }}>SEO</p>
@@ -305,12 +397,12 @@ function PostForm({
               />
             </div>
             <div>
-              <label style={labelStyle}>Cover Image URL</label>
+              <label style={labelStyle}>Social Share Image (OG) <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(defaults to cover)</span></label>
               <input
                 type="url"
                 value={form.ogImage}
                 onChange={(e) => set('ogImage', e.target.value)}
-                placeholder="https://..."
+                placeholder="https://... (optional)"
                 style={inputStyle}
                 onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
                 onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
@@ -327,6 +419,30 @@ function PostForm({
                 onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
                 onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
               />
+            </div>
+
+            {/* Indexing controls */}
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--fg-3)', margin: 0 }}>Search Indexing</p>
+              {([
+                { key: 'index',  desc: 'Allow search engines to index this page', on: !form.noindex,  toggle: () => set('noindex', !form.noindex) },
+                { key: 'follow', desc: 'Allow search engines to follow its links', on: !form.nofollow, toggle: () => set('nofollow', !form.nofollow) },
+              ] as const).map((row) => (
+                <div key={row.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                  <div>
+                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--fg-0)', margin: 0, textTransform: 'capitalize' }}>{row.key}</p>
+                    <p style={{ fontSize: '0.72rem', color: 'var(--fg-3)', margin: '2px 0 0 0' }}>{row.desc}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={row.toggle}
+                    aria-label={`Toggle ${row.key}`}
+                    style={{ flexShrink: 0, width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', position: 'relative', backgroundColor: row.on ? 'var(--brand-blue)' : 'var(--bg-3)', transition: 'background-color 0.2s' }}
+                  >
+                    <span style={{ position: 'absolute', top: '3px', left: row.on ? '22px' : '3px', width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'white', transition: 'left 0.2s' }} />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
 

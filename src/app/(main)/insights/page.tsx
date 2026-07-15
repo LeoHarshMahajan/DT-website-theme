@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { CATEGORY_BY_LABEL } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'Insights — Growth Intelligence for D2C & Emerging Brands',
@@ -286,9 +287,12 @@ export default function InsightsPage() {
               </Reveal>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }} className="topics-grid">
-              {TOPICS.map((t, i) => (
+              {TOPICS.map((t, i) => {
+                const catSlug = CATEGORY_BY_LABEL[t.label.toLowerCase()]?.slug;
+                const href = catSlug ? `/blog?category=${catSlug}` : '/blog';
+                return (
                 <Reveal key={t.label} direction="up" delay={0.05 * i}>
-                  <Link href="/blog" style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: '14px', padding: '22px', textDecoration: 'none', transition: 'border-color 0.2s' }}>
+                  <Link href={href} style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: '14px', padding: '22px', textDecoration: 'none', transition: 'border-color 0.2s' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: '1.3rem' }}>{t.icon}</span>
                       <span style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: t.color, fontWeight: '700', backgroundColor: t.color + '15', border: `1px solid ${t.color}30`, padding: '2px 8px', borderRadius: '4px' }}>{t.count} articles</span>
@@ -296,7 +300,8 @@ export default function InsightsPage() {
                     <p style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--fg-0)', lineHeight: 1.3 }}>{t.label}</p>
                   </Link>
                 </Reveal>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>

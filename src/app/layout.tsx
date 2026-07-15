@@ -68,7 +68,6 @@ export default function RootLayout({
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#07070a" />
-        <link rel="icon" href="/favicon.ico" />
         <link rel="manifest" href="/site.webmanifest" />
         {/* Google Tag Manager — must be in <head> for GSC ownership verification */}
         {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}

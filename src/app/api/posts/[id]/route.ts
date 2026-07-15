@@ -35,9 +35,13 @@ const updateSchema = z.object({
   content: z.string().optional(),
   published: z.boolean().optional(),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
+  category: z.string().optional(),
+  coverImage: z.string().optional(),
   metaTitle: z.string().optional(),
   ogImage: z.string().optional(),
   canonical: z.string().optional(),
+  noindex: z.boolean().optional(),
+  nofollow: z.boolean().optional(),
 });
 
 // PATCH /api/posts/[id]
@@ -67,9 +71,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (parsed.data.published && !existing.publishedAt) data.publishedAt = new Date();
   }
 
+  if (parsed.data.category !== undefined) data.category = parsed.data.category || null;
+  if (parsed.data.coverImage !== undefined) data.coverImage = parsed.data.coverImage || null;
   if (parsed.data.metaTitle !== undefined) data.metaTitle = parsed.data.metaTitle || null;
   if (parsed.data.ogImage !== undefined) data.ogImage = parsed.data.ogImage || null;
   if (parsed.data.canonical !== undefined) data.canonical = parsed.data.canonical || null;
+  if (parsed.data.noindex !== undefined) data.noindex = parsed.data.noindex;
+  if (parsed.data.nofollow !== undefined) data.nofollow = parsed.data.nofollow;
 
   if (parsed.data.tags !== undefined) {
     const tagNames = parseTags(parsed.data.tags);

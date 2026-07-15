@@ -84,12 +84,21 @@ model Post {
   status   String  @default("DRAFT") // DRAFT | SCHEDULED | PUBLISHED | ARCHIVED
   featured Boolean @default(false)
 
+  // Primary category (slug from BLOG_CATEGORIES) — drives filtering,
+  // related-article matching, and the on-card highlight.
+  category        String?
+
+  // Cover / featured image shown on the post + in blog cards.
+  coverImage      String?
+
   // SEO fields
   metaTitle       String?
   metaDescription String?
   metaKeywords    String?
   ogImage         String?
   canonical       String?
+  noindex         Boolean @default(false)
+  nofollow        Boolean @default(false)
 
   // Relations
   authorId String
@@ -106,6 +115,7 @@ model Post {
   @@index([status])
   @@index([slug])
   @@index([publishedAt])
+  @@index([category])
 }
 
 model Tag {
