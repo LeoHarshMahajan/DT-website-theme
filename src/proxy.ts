@@ -8,31 +8,18 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { readRedirectCacheFile } from '@/lib/redirectCache';
 
-// ── Redirect map cache (5-min TTL) ────────────────────────────────────────────
-// Fetches /api/redirects-map (a plain Route Handler, where Prisma is proven to
-// work) via loopback rather than querying Prisma directly here — Prisma's
-// native query engine silently fails inside the proxy/middleware execution
-// context on this host (the catch below swallowed it, so the map stayed
-// permanently empty and no redirect ever matched). Loopback avoids the
-// hairpin-NAT problem a same-box request to the *public* hostname hits on
-// non-Vercel hosts.
-let rdCache: Record<string, { destination: string; permanent: boolean }> | null = null;
-let rdExpiry = 0;
-
-async function getRedirectMap(): Promise<Record<string, { destination: string; permanent: boolean }>> {
-  if (rdCache && Date.now() < rdExpiry) return rdCache;
-  try {
-    const port = process.env.PORT ?? '3000';
-    const res = await fetch(`http://127.0.0.1:${port}/api/redirects-map`, {
-      signal: AbortSignal.timeout(2000),
-    });
-    if (res.ok) {
-      rdCache = await res.json();
-      rdExpiry = Date.now() + 5 * 60 * 1000;
-    }
-  } catch { /* internal fetch failed — serve stale cache if we have one, else empty */ }
-  return rdCache ?? {};
+// ── Redirect map ───────────────────────────────────────────────────────────
+// Reads a small JSON file on disk instead of querying Prisma or self-fetching
+// an API route from here — both silently failed in this host's proxy/
+// middleware execution context (Prisma's native engine doesn't load there,
+// and a loopback HTTP call to the app's own port never connected either, for
+// reasons that weren't observable without server log access). Plain fs reads
+// have no such dependency. The file is (re)written by the admin redirects API
+// on every create/update/delete — see src/lib/redirectCache.ts.
+function getRedirectMap() {
+  return readRedirectCacheFile();
 }
 
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'EDITOR'] as const;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
+import { refreshRedirectCacheFile } from '@/lib/redirectCache';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +23,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const redirect = await prisma.redirect.update({ where: { id }, data: parsed.data });
+  await refreshRedirectCacheFile();
   return NextResponse.json({ redirect });
 }
 
@@ -31,5 +33,6 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   await prisma.redirect.delete({ where: { id } });
+  await refreshRedirectCacheFile();
   return NextResponse.json({ success: true });
 }

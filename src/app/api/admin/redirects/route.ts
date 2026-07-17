@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
+import { refreshRedirectCacheFile } from '@/lib/redirectCache';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +11,9 @@ export async function GET() {
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const redirects = await prisma.redirect.findMany({ orderBy: { createdAt: 'desc' } });
+  // Opportunistic self-heal: if a deploy wiped the on-disk cache file since
+  // the last mutation, visiting this page regenerates it from the DB.
+  await refreshRedirectCacheFile();
   return NextResponse.json({ redirects });
 }
 
@@ -90,6 +94,7 @@ export async function POST(request: NextRequest) {
       if (r.error) errors.push({ line: i + 1, error: r.error });
       else created.push(r.redirect);
     }
+    if (created.length) await refreshRedirectCacheFile();
     return NextResponse.json({ created, errors }, { status: created.length ? 201 : 400 });
   }
 
@@ -98,5 +103,6 @@ export async function POST(request: NextRequest) {
 
   const r = await createOne(parsed.data);
   if (r.error) return NextResponse.json({ error: r.error }, { status: 409 });
+  await refreshRedirectCacheFile();
   return NextResponse.json({ redirect: r.redirect }, { status: 201 });
 }
