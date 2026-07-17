@@ -262,6 +262,27 @@ model Redirect {
 }
 
 // ============================================================
+// SITE PAGE SEO OVERRIDES
+// ============================================================
+// SEO metadata overrides for hardcoded/static routes (Home, About, Solutions,
+// etc.) — these pages ship as code, not CMS content, so this only covers
+// title/description/OG/canonical/indexing, not the visible page content.
+
+model PageSeoOverride {
+  id              String   @id @default(cuid())
+  path            String   @unique // e.g. "/", "/about", "/solutions/organic-growth"
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  canonical       String?
+  noindex         Boolean  @default(false)
+  nofollow        Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
 // LEADS / FORM SUBMISSIONS
 // ============================================================
 

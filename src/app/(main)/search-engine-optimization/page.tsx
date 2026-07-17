@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Search Engine Optimization (SEO) Services',
-  description: 'End-to-end SEO services — On-Page, Off-Page, Technical, Local, International, and eCommerce SEO. Win Google, ChatGPT, Perplexity, and Gemini with Digital Triangle.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/search-engine-optimization', {
+    title: 'Search Engine Optimization (SEO) Services',
+    description: 'End-to-end SEO services — On-Page, Off-Page, Technical, Local, International, and eCommerce SEO. Win Google, ChatGPT, Perplexity, and Gemini with Digital Triangle.',
+  });
+}
 
 const SEO_SERVICES = [
   {

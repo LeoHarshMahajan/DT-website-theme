@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Performance Marketing — Meta, Google, Amazon Ads',
-  description: 'AI-assisted media buying with creative strategy. Meta Ads, Google Ads, Amazon PPC, server-side tracking, and attribution that actually shows what\'s working.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/solutions/performance', {
+    title: 'Performance Marketing — Meta, Google, Amazon Ads',
+    description: 'AI-assisted media buying with creative strategy. Meta Ads, Google Ads, Amazon PPC, server-side tracking, and attribution that actually shows what\'s working.',
+  });
+}
 
 const CHANNELS = [
   {

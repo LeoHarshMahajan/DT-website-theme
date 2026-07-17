@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { SITE_DESCRIPTION } from "@/lib/constants";
+import { buildPageMetadata } from "@/lib/seo";
 import { HeroWorkflow } from "@/components/sections/Hero";
 import { ConnectedStack } from "@/components/sections/ConnectedStack";
 import { SystemsGrid } from "@/components/sections/SystemsGrid";
@@ -12,10 +13,13 @@ import { Pricing } from "@/components/sections/Pricing";
 import { CTASection } from "@/components/sections/CTASection";
 import { Footer } from "@/components/Footer";
 
-export const metadata: Metadata = {
-  title: 'AI-Powered Growth Infrastructure',
-  description: SITE_DESCRIPTION,
-};
+// Revalidate periodically so an SEO edit in admin takes effect without a
+// full redeploy — matches the 5-min TTL already used for the redirect map.
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/', { title: 'AI-Powered Growth Infrastructure', description: SITE_DESCRIPTION });
+}
 
 export default function Home() {
   return (

@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Brand & Creative — Identity That Converts',
-  description: 'Brand strategy, identity systems, performance ad creative, UI/UX design, and video production. Creative that doesn\'t just look good — it converts.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/solutions/brand-creative', {
+    title: 'Brand & Creative — Identity That Converts',
+    description: 'Brand strategy, identity systems, performance ad creative, UI/UX design, and video production. Creative that doesn\'t just look good — it converts.',
+  });
+}
 
 const SERVICES = [
   {

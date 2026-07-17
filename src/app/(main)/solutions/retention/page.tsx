@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Retention & Lifecycle Marketing — Turn Buyers Into Brand Advocates',
-  description: 'WhatsApp automation, CRM workflows, email & SMS sequences, and win-back campaigns. We build the systems that turn one-time buyers into repeat customers and brand advocates.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/solutions/retention', {
+    title: 'Retention & Lifecycle Marketing — Turn Buyers Into Brand Advocates',
+    description: 'WhatsApp automation, CRM workflows, email & SMS sequences, and win-back campaigns. We build the systems that turn one-time buyers into repeat customers and brand advocates.',
+  });
+}
 
 const SERVICES = [
   {

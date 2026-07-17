@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Organic Growth — SEO, AEO & GEO',
-  description: 'AI-first SEO strategies that compound over time. Technical SEO, content clusters, AEO for AI answer engines, and programmatic SEO at scale.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/solutions/organic-growth', {
+    title: 'Organic Growth — SEO, AEO & GEO',
+    description: 'AI-first SEO strategies that compound over time. Technical SEO, content clusters, AEO for AI answer engines, and programmatic SEO at scale.',
+  });
+}
 
 const SERVICES = [
   {

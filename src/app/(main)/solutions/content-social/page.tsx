@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Content & Social Media Marketing',
-  description: 'Reels, founder branding, UGC programs, and a content engine that produces at the speed of social — without losing brand quality.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/solutions/content-social', {
+    title: 'Content & Social Media Marketing',
+    description: 'Reels, founder branding, UGC programs, and a content engine that produces at the speed of social — without losing brand quality.',
+  });
+}
 
 const SERVICES = [
   {

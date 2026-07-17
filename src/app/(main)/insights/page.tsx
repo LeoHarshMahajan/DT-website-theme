@@ -3,11 +3,16 @@ import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
 import { CATEGORY_BY_LABEL } from '@/lib/constants';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Insights — Growth Intelligence for D2C & Emerging Brands',
-  description: 'Industry benchmarks, growth frameworks, and strategic playbooks from the Digital Triangle team. Data-led intelligence for modern brand builders.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/insights', {
+    title: 'Insights — Growth Intelligence for D2C & Emerging Brands',
+    description: 'Industry benchmarks, growth frameworks, and strategic playbooks from the Digital Triangle team. Data-led intelligence for modern brand builders.',
+  });
+}
 
 const BENCHMARKS = [
   { value: '5×', label: 'Cost to acquire vs retain', note: 'Avg across D2C verticals' },

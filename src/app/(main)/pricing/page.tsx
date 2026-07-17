@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import { Pricing } from '@/components/sections/Pricing';
 import { Footer } from '@/components/Footer';
 import { Reveal } from '@/components/ui/Reveal';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Pricing',
-  description: 'Three productised packages for D2C and emerging brands. Custom enterprise engagements for category leaders.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/pricing', {
+    title: 'Pricing',
+    description: 'Three productised packages for D2C and emerging brands. Custom enterprise engagements for category leaders.',
+  });
+}
 
 const FAQ = [
   {

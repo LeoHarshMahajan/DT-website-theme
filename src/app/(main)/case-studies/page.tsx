@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Case Studies',
-  description: "Real results from real brands. See how Digital Triangle's AI-powered growth systems drive measurable outcomes.",
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/case-studies', {
+    title: 'Case Studies',
+    description: "Real results from real brands. See how Digital Triangle's AI-powered growth systems drive measurable outcomes.",
+  });
+}
 
 const CASES = [
   {

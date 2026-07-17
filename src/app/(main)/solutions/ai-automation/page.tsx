@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'AI & Marketing Automation Systems',
-  description: 'We wire Claude, GPT, and Gemini into your marketing operations — research, creative briefing, campaign monitoring, and CRM flows. All automated.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/solutions/ai-automation', {
+    title: 'AI & Marketing Automation Systems',
+    description: 'We wire Claude, GPT, and Gemini into your marketing operations — research, creative briefing, campaign monitoring, and CRM flows. All automated.',
+  });
+}
 
 const SYSTEMS = [
   {

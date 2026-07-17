@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Industries',
-  description: 'Digital Triangle builds AI-powered growth systems for D2C brands, ecommerce, SaaS, fashion, luxury, and B2B companies.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/industries', {
+    title: 'Industries',
+    description: 'Digital Triangle builds AI-powered growth systems for D2C brands, ecommerce, SaaS, fashion, luxury, and B2B companies.',
+  });
+}
 
 const INDUSTRIES = [
   {

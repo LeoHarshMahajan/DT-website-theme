@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Analytics & Conversion Rate Optimisation (CRO)',
-  description: 'GA4 implementation, custom attribution models, real-time dashboards, and systematic CRO programs. Make every data-backed decision with confidence.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/solutions/analytics', {
+    title: 'Analytics & Conversion Rate Optimisation (CRO)',
+    description: 'GA4 implementation, custom attribution models, real-time dashboards, and systematic CRO programs. Make every data-backed decision with confidence.',
+  });
+}
 
 const SERVICES = [
   {

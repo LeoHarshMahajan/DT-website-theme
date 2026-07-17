@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Growth Solutions',
-  description: 'Six AI-powered growth systems: Organic Growth, Performance, Content & Social, AI & Automation, Brand & Creative, Analytics & Conversion.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/solutions', {
+    title: 'Growth Solutions',
+    description: 'Six AI-powered growth systems: Organic Growth, Performance, Content & Social, AI & Automation, Brand & Creative, Analytics & Conversion.',
+  });
+}
 
 const SOLUTIONS = [
   {

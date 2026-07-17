@@ -2,11 +2,16 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { Footer } from '@/components/Footer';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'About Digital Triangle — We Build Brands That Compound',
-  description: 'We are a growth intelligence company built on one belief: that great brands are not made in campaigns — they are engineered over time with strategy, data, and creative that compounds.',
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata('/about', {
+    title: 'About Digital Triangle — We Build Brands That Compound',
+    description: 'We are a growth intelligence company built on one belief: that great brands are not made in campaigns — they are engineered over time with strategy, data, and creative that compounds.',
+  });
+}
 
 const VALUES = [
   {
