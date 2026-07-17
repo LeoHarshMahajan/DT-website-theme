@@ -24,12 +24,6 @@ const TAG_COLORS: Record<string, string> = {
   'India': '#e11d8a', 'Templates': '#f59e0b', 'Coupons': '#e11d8a',
 };
 
-function mockTagsFromPosts(posts: BlogPost[]): string[] {
-  const set = new Set<string>();
-  posts.forEach((p) => p.tags.forEach((t) => set.add(t)));
-  return Array.from(set).sort();
-}
-
 export function BlogContent() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,9 +31,7 @@ export function BlogContent() {
   const [totalPages, setTotalPages] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedTag, setSelectedTag] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [availableCategories, setAvailableCategories] = useState<{ slug: string; count: number }[]>([]);
   // null = unknown, true = DB has posts, false = DB is empty → use static fallback
   const dbHasPosts = useRef<boolean | null>(null);
@@ -48,15 +40,13 @@ export function BlogContent() {
   // params land, wasting a request and flashing unfiltered content.
   const [ready, setReady] = useState(false);
 
-  // Read initial filters from the URL (?category= / ?tag= / ?search=) so links
-  // from the Insights topic cards and blog-post chips land pre-filtered.
+  // Read initial filters from the URL (?category= / ?search=) so links from
+  // the Insights topic cards and blog-post chips land pre-filtered.
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const cat = sp.get('category') ?? '';
-    const tg = sp.get('tag') ?? '';
     const q = sp.get('search') ?? '';
     if (cat) setSelectedCategory(cat);
-    if (tg) setSelectedTag(tg);
     if (q) { setSearchQuery(q); setDebouncedSearch(q); }
     setReady(true);
   }, []);
@@ -67,11 +57,10 @@ export function BlogContent() {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  const fetchPosts = useCallback(async (page: number, tag: string, search: string, category: string) => {
+  const fetchPosts = useCallback(async (page: number, search: string, category: string) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: String(ITEMS_PER_PAGE) });
-      if (tag)      params.set('tag', tag);
       if (search)   params.set('search', search);
       if (category) params.set('category', category);
 
@@ -79,7 +68,7 @@ export function BlogContent() {
       if (!res.ok) throw new Error();
       const data = await res.json();
 
-      const isFirstUnfiltered = page === 1 && !tag && !search && !category;
+      const isFirstUnfiltered = page === 1 && !search && !category;
 
       // Matches a static post against the active category by whole-word overlap
       // with the category label (word-boundary, not substring — "ai" must not
@@ -101,8 +90,6 @@ export function BlogContent() {
         if (dbHasPosts.current === false) {
           const mock = category
             ? BLOG_POSTS.filter(catMatches)
-            : tag
-            ? BLOG_POSTS.filter((p) => p.tags.includes(tag))
             : search
             ? BLOG_POSTS.filter((p) =>
                 p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -122,23 +109,13 @@ export function BlogContent() {
         setTotalPages(data.pagination?.pages ?? 1);
       }
 
-      // Populate tag chips from API on first unfiltered load
-      if (data.availableTags?.length) {
-        setAvailableTags(data.availableTags);
-      } else if (!availableTags.length) {
-        setAvailableTags(mockTagsFromPosts(BLOG_POSTS));
-      }
       if (data.availableCategories?.length) {
         setAvailableCategories(data.availableCategories);
       }
     } catch {
-      // Network error fallback — use static data
-      const mock = selectedTag
-        ? BLOG_POSTS.filter((p) => p.tags.includes(selectedTag))
-        : BLOG_POSTS;
-      setPosts(mock.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE));
-      setTotalPages(Math.ceil(mock.length / ITEMS_PER_PAGE));
-      if (!availableTags.length) setAvailableTags(mockTagsFromPosts(BLOG_POSTS));
+      // Network error fallback — use static data, unfiltered
+      setPosts(BLOG_POSTS.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE));
+      setTotalPages(Math.ceil(BLOG_POSTS.length / ITEMS_PER_PAGE));
     } finally {
       setIsLoading(false);
     }
@@ -147,27 +124,17 @@ export function BlogContent() {
 
   useEffect(() => {
     if (!ready) return;
-    fetchPosts(currentPage, selectedTag, debouncedSearch, selectedCategory);
-  }, [ready, currentPage, selectedTag, debouncedSearch, selectedCategory, fetchPosts]);
-
-  const handleTagClick = (tag: string) => {
-    setSelectedTag((prev) => (prev === tag ? '' : tag));
-    setSelectedCategory('');
-    setCurrentPage(1);
-    setSearchQuery('');
-    setDebouncedSearch('');
-  };
+    fetchPosts(currentPage, debouncedSearch, selectedCategory);
+  }, [ready, currentPage, debouncedSearch, selectedCategory, fetchPosts]);
 
   const handleCategoryClick = (slug: string) => {
     setSelectedCategory((prev) => (prev === slug ? '' : slug));
-    setSelectedTag('');
     setCurrentPage(1);
     setSearchQuery('');
     setDebouncedSearch('');
   };
 
   const clearFilters = () => {
-    setSelectedTag('');
     setSelectedCategory('');
     setSearchQuery('');
     setDebouncedSearch('');
@@ -177,7 +144,7 @@ export function BlogContent() {
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const isFiltered = !!selectedTag || !!selectedCategory || !!debouncedSearch;
+  const isFiltered = !!selectedCategory || !!debouncedSearch;
   const activeCat = selectedCategory ? CATEGORY_BY_SLUG[selectedCategory] : undefined;
 
   return (
@@ -214,8 +181,8 @@ export function BlogContent() {
                 <input
                   type="search"
                   value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); setSelectedTag(''); }}
-                  placeholder="Search articles, topics, tags..."
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); setSelectedCategory(''); }}
+                  placeholder="Search articles, topics..."
                   style={{
                     width: '100%', padding: '14px 44px', borderRadius: '999px',
                     border: '1px solid var(--line-strong)',
@@ -250,9 +217,9 @@ export function BlogContent() {
                   padding: '6px 16px', borderRadius: '999px', border: '1px solid',
                   fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
                   fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
-                  borderColor: !selectedCategory && !selectedTag ? 'var(--brand-blue)' : 'var(--line)',
-                  backgroundColor: !selectedCategory && !selectedTag ? 'var(--brand-blue)' : 'transparent',
-                  color: !selectedCategory && !selectedTag ? '#fff' : 'var(--fg-2)',
+                  borderColor: !selectedCategory ? 'var(--brand-blue)' : 'var(--line)',
+                  backgroundColor: !selectedCategory ? 'var(--brand-blue)' : 'transparent',
+                  color: !selectedCategory ? '#fff' : 'var(--fg-2)',
                 }}
               >
                 All
@@ -285,51 +252,6 @@ export function BlogContent() {
         </section>
       )}
 
-      {/* ── Tag Filter Bar ── */}
-      {availableTags.length > 0 && (
-        <section style={{ borderBottom: '1px solid var(--line)', backgroundColor: 'var(--bg-1)' }}>
-          <div className="shell" style={{ padding: '16px 0', overflowX: 'auto' }}>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap', minWidth: 'max-content' }}>
-              {/* All chip */}
-              <button
-                onClick={clearFilters}
-                style={{
-                  padding: '6px 16px', borderRadius: '999px', border: '1px solid',
-                  fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
-                  fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
-                  borderColor: !selectedTag ? 'var(--brand-blue)' : 'var(--line)',
-                  backgroundColor: !selectedTag ? 'var(--brand-blue)' : 'transparent',
-                  color: !selectedTag ? '#fff' : 'var(--fg-2)',
-                }}
-              >
-                All Posts
-              </button>
-
-              {availableTags.map((tag) => {
-                const color = TAG_COLORS[tag] ?? 'var(--brand-blue)';
-                const active = selectedTag === tag;
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => handleTagClick(tag)}
-                    style={{
-                      padding: '6px 14px', borderRadius: '999px', border: '1px solid',
-                      fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
-                      fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
-                      borderColor: active ? color : 'var(--line)',
-                      backgroundColor: active ? color + '18' : 'transparent',
-                      color: active ? color : 'var(--fg-2)',
-                    }}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* ── Posts ── */}
       <section style={{ padding: 'clamp(48px, 7vw, 80px) 0' }}>
         <div className="shell">
@@ -344,16 +266,6 @@ export function BlogContent() {
                       {activeCat.icon} {activeCat.label}
                     </span>
                     <button onClick={() => { setSelectedCategory(''); setCurrentPage(1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: activeCat.color, padding: '0 0 0 2px', display: 'flex', alignItems: 'center', lineHeight: 1 }}>
-                      ×
-                    </button>
-                  </div>
-                )}
-                {selectedTag && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px', borderRadius: '999px', backgroundColor: (TAG_COLORS[selectedTag] ?? '#4b6bff') + '15', border: `1px solid ${TAG_COLORS[selectedTag] ?? '#4b6bff'}30` }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: '600', color: TAG_COLORS[selectedTag] ?? '#4b6bff' }}>
-                      {selectedTag}
-                    </span>
-                    <button onClick={() => { setSelectedTag(''); setCurrentPage(1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: TAG_COLORS[selectedTag] ?? '#4b6bff', padding: '0 0 0 2px', display: 'flex', alignItems: 'center', lineHeight: 1 }}>
                       ×
                     </button>
                   </div>
@@ -424,27 +336,17 @@ export function BlogContent() {
                         <img src={cover} alt="" style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block', flexShrink: 0 }} />
                       )}
                       <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                        {/* Category (highlighted) or tags fallback */}
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                          {cardCat ? (
+                        {/* Category */}
+                        {cardCat && (
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '5px',
                               padding: '3px 10px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: '800',
                               fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', textTransform: 'uppercase',
                               backgroundColor: cardCat.color, color: '#fff',
                             }}><span aria-hidden>{cardCat.icon}</span>{cardCat.label}</span>
-                          ) : (
-                            post.tags.slice(0, 2).map((tag) => (
-                              <span key={tag} style={{
-                                padding: '3px 9px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: '600',
-                                fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', textTransform: 'uppercase',
-                                backgroundColor: (TAG_COLORS[tag] ?? 'var(--brand-blue)') + '15',
-                                border: `1px solid ${(TAG_COLORS[tag] ?? 'var(--brand-blue)')}30`,
-                                color: TAG_COLORS[tag] ?? 'var(--brand-blue)',
-                              }}>{tag}</span>
-                            ))
-                          )}
-                        </div>
+                          </div>
+                        )}
 
                         {/* Title */}
                         <h2 style={{

@@ -178,10 +178,10 @@ export default async function BlogPostPage({ params }: Props) {
               </Link>
             </Reveal>
 
-            {/* Category (highlighted) + tags — all clickable */}
-            <Reveal direction="up" delay={0.06}>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', alignItems: 'center' }}>
-                {cat && (
+            {/* Category */}
+            {cat && (
+              <Reveal direction="up" delay={0.06}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', alignItems: 'center' }}>
                   <Link
                     href={`/blog?category=${cat.slug}`}
                     style={{
@@ -194,25 +194,9 @@ export default async function BlogPostPage({ params }: Props) {
                   >
                     <span aria-hidden>{cat.icon}</span> {cat.label}
                   </Link>
-                )}
-                {post.tags.map(tag => (
-                  <Link
-                    key={tag}
-                    href={`/blog?tag=${encodeURIComponent(tag)}`}
-                    style={{
-                      padding: '4px 12px', borderRadius: '999px',
-                      fontSize: '0.7rem', fontWeight: '700',
-                      fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase',
-                      backgroundColor: (TAG_COLORS[tag] ?? accentColor) + '18',
-                      border: `1px solid ${(TAG_COLORS[tag] ?? accentColor)}35`,
-                      color: TAG_COLORS[tag] ?? accentColor, textDecoration: 'none',
-                    }}
-                  >
-                    {tag}
-                  </Link>
-                ))}
-              </div>
-            </Reveal>
+                </div>
+              </Reveal>
+            )}
 
             {/* Title */}
             <Reveal direction="up" delay={0.08}>
@@ -304,35 +288,6 @@ export default async function BlogPostPage({ params }: Props) {
               <div style={{ position: 'sticky', top: '88px' }}>
                 <Reveal direction="up" delay={0.12}>
 
-                  {/* Tags */}
-                  <div
-                    style={{
-                      backgroundColor: 'var(--bg-1)', border: '1px solid var(--line)',
-                      borderRadius: '16px', padding: '24px', marginBottom: '20px',
-                    }}
-                  >
-                    <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', marginBottom: '14px', fontFamily: 'var(--font-mono)' }}>
-                      Topics
-                    </p>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {post.tags.map(tag => (
-                        <Link
-                          key={tag}
-                          href={`/blog?tag=${encodeURIComponent(tag)}`}
-                          style={{
-                            padding: '5px 12px', borderRadius: '999px',
-                            fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none',
-                            backgroundColor: (TAG_COLORS[tag] ?? accentColor) + '15',
-                            border: `1px solid ${(TAG_COLORS[tag] ?? accentColor)}30`,
-                            color: TAG_COLORS[tag] ?? accentColor,
-                          }}
-                        >
-                          {tag}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Share */}
                   <div
                     style={{
@@ -421,15 +376,11 @@ export default async function BlogPostPage({ params }: Props) {
                         >
                           <div style={{ height: '3px', background: `linear-gradient(90deg, ${rc}, transparent)` }} />
                           <div style={{ padding: '20px' }}>
-                            <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                              {rCat ? (
+                            {rCat && (
+                              <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: '0.65rem', fontWeight: 800, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#fff', backgroundColor: rCat.color, padding: '2px 8px', borderRadius: '999px' }}>{rCat.label}</span>
-                              ) : (
-                                r.tags.slice(0, 2).map(t => (
-                                  <span key={t} style={{ fontSize: '0.65rem', fontWeight: 700, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', color: TAG_COLORS[t] ?? rc, backgroundColor: (TAG_COLORS[t] ?? rc) + '15', padding: '2px 8px', borderRadius: '999px' }}>{t}</span>
-                                ))
-                              )}
-                            </div>
+                              </div>
+                            )}
                             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--fg-0)', lineHeight: 1.4, marginBottom: '8px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                               {r.title}
                             </h3>

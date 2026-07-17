@@ -2,7 +2,7 @@
  * Next.js 16 Proxy — Route Protection & Security
  *
  * Next.js 16 renamed middleware.ts to proxy.ts. This file MUST be named proxy.ts.
- * It runs on the Edge runtime on every matching request.
+ * Proxy always runs on the Node.js runtime (not Edge) — safe to use Prisma directly.
  */
 
 import { NextResponse } from 'next/server';
@@ -10,18 +10,28 @@ import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
 // ── Redirect map cache (5-min TTL) ────────────────────────────────────────────
+// Fetches /api/redirects-map (a plain Route Handler, where Prisma is proven to
+// work) via loopback rather than querying Prisma directly here — Prisma's
+// native query engine silently fails inside the proxy/middleware execution
+// context on this host (the catch below swallowed it, so the map stayed
+// permanently empty and no redirect ever matched). Loopback avoids the
+// hairpin-NAT problem a same-box request to the *public* hostname hits on
+// non-Vercel hosts.
 let rdCache: Record<string, { destination: string; permanent: boolean }> | null = null;
 let rdExpiry = 0;
 
-async function getRedirectMap(origin: string): Promise<Record<string, { destination: string; permanent: boolean }>> {
+async function getRedirectMap(): Promise<Record<string, { destination: string; permanent: boolean }>> {
   if (rdCache && Date.now() < rdExpiry) return rdCache;
   try {
-    const res = await fetch(`${origin}/api/redirects-map`, { cache: 'no-store' });
+    const port = process.env.PORT ?? '3000';
+    const res = await fetch(`http://127.0.0.1:${port}/api/redirects-map`, {
+      signal: AbortSignal.timeout(2000),
+    });
     if (res.ok) {
       rdCache = await res.json();
       rdExpiry = Date.now() + 5 * 60 * 1000;
     }
-  } catch { /* ignore — return stale or empty */ }
+  } catch { /* internal fetch failed — serve stale cache if we have one, else empty */ }
   return rdCache ?? {};
 }
 
@@ -49,8 +59,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── DB-driven redirects ────────────────────────────────────────────────────
-  const origin = `${request.nextUrl.protocol}//${request.nextUrl.host}`;
-  const rdMap = await getRedirectMap(origin);
+  const rdMap = await getRedirectMap();
   const rd = rdMap[pathname];
   if (rd) {
     return NextResponse.redirect(new URL(rd.destination, request.url), {
