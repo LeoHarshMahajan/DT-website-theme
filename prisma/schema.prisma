@@ -86,10 +86,10 @@ model Post {
 
   // Primary category (slug from BLOG_CATEGORIES) — drives filtering,
   // related-article matching, and the on-card highlight.
-  category        String?
+  category String?
 
   // Cover / featured image shown on the post + in blog cards.
-  coverImage      String?
+  coverImage String?
 
   // SEO fields
   metaTitle       String?
@@ -248,14 +248,14 @@ model SiteSettings {
 // ============================================================
 
 model Redirect {
-  id          String   @id @default(cuid())
-  source      String   @unique // e.g. /old-page
-  destination String            // e.g. /new-page or https://...
-  permanent   Boolean  @default(false)
-  isActive    Boolean  @default(true)
+  id          String  @id @default(cuid())
+  source      String  @unique // e.g. /old-page
+  destination String // e.g. /new-page or https://...
+  permanent   Boolean @default(false)
+  isActive    Boolean @default(true)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([source])
   @@index([isActive])
@@ -269,14 +269,14 @@ model Redirect {
 // title/description/OG/canonical/indexing, not the visible page content.
 
 model PageSeoOverride {
-  id              String   @id @default(cuid())
-  path            String   @unique // e.g. "/", "/about", "/solutions/organic-growth"
+  id              String  @id @default(cuid())
+  path            String  @unique // e.g. "/", "/about", "/solutions/organic-growth"
   metaTitle       String?
   metaDescription String?
   ogImage         String?
   canonical       String?
-  noindex         Boolean  @default(false)
-  nofollow        Boolean  @default(false)
+  noindex         Boolean @default(false)
+  nofollow        Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -288,7 +288,7 @@ model PageSeoOverride {
 
 model Lead {
   id       String  @id @default(cuid())
-  type     String  @default("CONTACT") // CONTACT | CONSULTATION | AUDIT
+  type     String  @default("CONTACT") // CONTACT | CONSULTATION | AUDIT | DISCOVERY_AGENT
   name     String
   email    String
   phone    String?
@@ -302,10 +302,37 @@ model Lead {
   status   String  @default("NEW") // NEW | CONTACTED | QUALIFIED | CLOSED | SPAM
   source   String? // page path the lead came from
 
+  conversationId     String?       @unique
+  conversation       Conversation? @relation(fields: [conversationId], references: [id])
+  websiteAnalysis    String? // JSON snapshot of analyze_website() output
+  qualificationScore Int? // 0-100, set by the discovery agent
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([type])
   @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================================
+// DISCOVERY AGENT
+// ============================================================
+
+model Conversation {
+  id             String  @id @default(cuid())
+  page           String // path the widget was opened from
+  persona        String // persona key used for this session
+  outcome        String  @default("OPEN") // OPEN | BOOKED | EXITED | ABANDONED
+  transcript     String  @db.Text // JSON array of {role, content, ts}
+  extractedFacts String? // JSON object the agent has gathered so far
+  costCents      Int     @default(0) // running per-model cost tally
+
+  lead Lead?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([outcome])
   @@index([createdAt])
 }
