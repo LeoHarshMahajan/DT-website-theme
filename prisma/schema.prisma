@@ -337,3 +337,15 @@ model Conversation {
   @@index([outcome])
   @@index([createdAt])
 }
+
+// ============================================================
+// APP SECRETS
+// ============================================================
+// Credentials the hosting panel can't hold reliably (Hostinger mangles
+// multi-line PEM values). Same trust boundary as the rest of this DB.
+
+model AppSecret {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}

@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { prisma } from '@/lib/db/prisma';
 
 // Slot rules (spec-locked): 30-min calls, Mon-Fri, IST business hours, small buffer.
 const SLOT_MINUTES = 30;
@@ -8,35 +9,44 @@ const BUSINESS_END_HOUR_IST = 18;
 const LOOKAHEAD_DAYS = 7;
 const IST_OFFSET_MINUTES = 5.5 * 60;
 
-// ponytail: some hosting env-var panels mangle a raw multi-line PEM string
-// (confirmed on Hostinger — kept reverting/corrupting on paste/import).
-// A single base64 blob has no newlines or backslashes for a form to mangle.
-function loadServiceAccount(): { client_email: string; private_key: string } | null {
-  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_JSON_B64;
-  if (b64) {
-    try {
-      return JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
-    } catch {
-      return null;
-    }
-  }
-  // Fallback: separate vars (used for local dev before the b64 form existed).
+type ServiceAccount = { client_email: string; private_key: string; subject: string };
+
+// ponytail: credentials live in the DB, not the hosting env panel — Hostinger's
+// panel could not hold a multi-line PEM (kept serving a stale/corrupt value
+// through edits, .env imports and full redeploys). The DB is already a trusted
+// store on the same connection prod uses, and is writable from a dev machine,
+// so it's one less broken moving part. Env vars still win if set.
+let cached: ServiceAccount | null = null;
+
+async function loadServiceAccount(): Promise<ServiceAccount | null> {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const key = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-  if (!email || !key) return null;
-  return { client_email: email, private_key: key };
+  const subject = process.env.GOOGLE_CALENDAR_IMPERSONATE;
+  if (email && key && subject) return { client_email: email, private_key: key, subject };
+
+  if (cached) return cached;
+  try {
+    const row = await prisma.appSecret.findUnique({ where: { key: 'google_calendar' } });
+    if (!row) return null;
+    cached = JSON.parse(row.value) as ServiceAccount;
+    return cached;
+  } catch {
+    return null;
+  }
 }
 
-function getAuth() {
-  const sa = loadServiceAccount();
-  const subject = process.env.GOOGLE_CALENDAR_IMPERSONATE;
-  if (!sa || !subject) return null;
-  return new google.auth.JWT({
+// Returns the client plus the calendar it acts on — the impersonated mailbox
+// IS the target calendar, so they always travel together.
+async function getClient() {
+  const sa = await loadServiceAccount();
+  if (!sa) return null;
+  const auth = new google.auth.JWT({
     email: sa.client_email,
     key: sa.private_key,
-    subject,
+    subject: sa.subject,
     scopes: ['https://www.googleapis.com/auth/calendar'],
   });
+  return { calendar: google.calendar({ version: 'v3', auth }), calendarId: sa.subject };
 }
 
 function toIstParts(utcMs: number) {
@@ -54,10 +64,9 @@ function istWallTimeToUtc(year: number, month: number, date: number, hour: numbe
 export type Slot = { start: string; end: string; label: string };
 
 export async function getAvailability(): Promise<Slot[] | { error: string }> {
-  const auth = getAuth();
-  if (!auth) return { error: 'Calendar is not connected yet.' };
-  const calendarId = process.env.GOOGLE_CALENDAR_IMPERSONATE!;
-  const calendar = google.calendar({ version: 'v3', auth });
+  const client = await getClient();
+  if (!client) return { error: 'Calendar is not connected yet.' };
+  const { calendar, calendarId } = client;
 
   const now = new Date();
   const rangeEnd = new Date(now.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000);
@@ -118,10 +127,9 @@ export async function getAvailability(): Promise<Slot[] | { error: string }> {
 }
 
 export async function bookCall(input: { name: string; email: string; start: string; context: string }) {
-  const auth = getAuth();
-  if (!auth) return { error: 'Calendar is not connected yet.' };
-  const calendarId = process.env.GOOGLE_CALENDAR_IMPERSONATE!;
-  const calendar = google.calendar({ version: 'v3', auth });
+  const client = await getClient();
+  if (!client) return { error: 'Calendar is not connected yet.' };
+  const { calendar, calendarId } = client;
 
   const start = new Date(input.start);
   if (Number.isNaN(start.getTime())) return { error: 'Invalid slot — ask the visitor to pick one of the offered times.' };
