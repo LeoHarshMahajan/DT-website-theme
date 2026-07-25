@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/db/prisma';
 import { getPersona } from '@/lib/discovery/personas';
 import { analyzeWebsite } from '@/lib/discovery/analyzeWebsite';
+import { getAvailability, bookCall } from '@/lib/discovery/calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,27 @@ const TOOLS: Anthropic.Tool[] = [
       required: ['name', 'email'],
     },
   },
+  {
+    name: 'get_availability',
+    description:
+      'Get real open 30-minute discovery-call slots for the next week (Mon-Fri, IST business hours). Call this once you know they want to book a call, before offering any specific times — never invent or guess times.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'book_call',
+    description:
+      "Book a discovery call on the team's calendar and send the visitor a calendar invite. Only call this with a start time that came from get_availability's output — never a time you made up.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        email: { type: 'string' },
+        start: { type: 'string', description: 'ISO timestamp of the slot, exactly as returned by get_availability' },
+        context: { type: 'string', description: "Short summary of what they need, for the event description" },
+      },
+      required: ['name', 'email', 'start', 'context'],
+    },
+  },
 ];
 
 async function runTool(name: string, input: Record<string, unknown>, conversationId: string) {
@@ -79,6 +101,21 @@ async function runTool(name: string, input: Record<string, unknown>, conversatio
       update: fields,
     });
     return { saved: true, leadId: lead.id };
+  }
+  if (name === 'get_availability') {
+    return getAvailability();
+  }
+  if (name === 'book_call') {
+    const result = await bookCall({
+      name: String(input.name),
+      email: String(input.email),
+      start: String(input.start),
+      context: String(input.context),
+    });
+    if ('booked' in result && result.booked) {
+      await prisma.conversation.update({ where: { id: conversationId }, data: { outcome: 'BOOKED' } });
+    }
+    return result;
   }
   return { error: `Unknown tool ${name}` };
 }
@@ -129,7 +166,7 @@ The conversation, roughly in this order (adapt naturally, don't make it feel lik
 3. Qualify like a real sales rep would, woven into the conversation, not interrogated in a row: budget band (even a rough range is fine — "not sure yet" is a valid answer, don't push), timeline / how soon they want to start, and what's actually blocking them today.
 4. Get name, email, and phone number so the team can follow up properly. Ask for phone naturally when you're wrapping up ("what's the best number to reach you on") — never make it feel like a gate before they get value.
 5. Propose an approach tied to their specific gaps, anchored to something real Digital Triangle has done, not a generic pitch.
-6. Tell them the team will personally follow up within a business day once you've got their details — booking a live calendar slot isn't wired up yet, don't promise one.
+6. When they're up for it, offer to book a discovery call. Call get_availability, offer 2-3 of the real returned slots conversationally (never invent times), and once they pick one, call book_call with that exact ISO start time plus their name and email. Confirm the booking back to them in plain language once it succeeds. If get_availability or book_call returns an error, don't loop on it — tell them the team will follow up within a business day instead.
 
 Tool discipline:
 - Call save_lead every time you learn something new and worth persisting (a name, an email, a budget hint, a timeline) — not just once at the end. Partial info is fine; update it as you go. Losing the lead because you waited too long to save is the worst outcome.
