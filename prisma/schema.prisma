@@ -295,6 +295,7 @@ model Lead {
   company  String?
   website  String?
   budget   String?
+  timeline String? // expected start date / urgency, gathered by discovery agent
   services String? // comma-separated list
   goals    String? // comma-separated list (consultation)
   slot     String? // preferred time slot (consultation)

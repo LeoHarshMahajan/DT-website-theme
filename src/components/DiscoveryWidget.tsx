@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { getPersona } from '@/lib/discovery/personas';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -17,6 +18,16 @@ export function DiscoveryWidget() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [msgs, loading]);
+
+  // Welcome bubble is presentational (matches the persona the backend uses
+  // for this page) and costs nothing — the real conversation starts once
+  // the visitor sends their first message.
+  useEffect(() => {
+    if (open && msgs.length === 0) {
+      setMsgs([{ role: 'assistant', content: getPersona(pathname ?? '/').opener }]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (pathname?.startsWith('/admin') || pathname?.startsWith('/auth')) return null;
 
