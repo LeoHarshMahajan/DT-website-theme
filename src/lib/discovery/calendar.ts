@@ -8,14 +8,32 @@ const BUSINESS_END_HOUR_IST = 18;
 const LOOKAHEAD_DAYS = 7;
 const IST_OFFSET_MINUTES = 5.5 * 60;
 
-function getAuth() {
+// ponytail: some hosting env-var panels mangle a raw multi-line PEM string
+// (confirmed on Hostinger — kept reverting/corrupting on paste/import).
+// A single base64 blob has no newlines or backslashes for a form to mangle.
+function loadServiceAccount(): { client_email: string; private_key: string } | null {
+  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_JSON_B64;
+  if (b64) {
+    try {
+      return JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
+    } catch {
+      return null;
+    }
+  }
+  // Fallback: separate vars (used for local dev before the b64 form existed).
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const key = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  if (!email || !key) return null;
+  return { client_email: email, private_key: key };
+}
+
+function getAuth() {
+  const sa = loadServiceAccount();
   const subject = process.env.GOOGLE_CALENDAR_IMPERSONATE;
-  if (!email || !key || !subject) return null;
+  if (!sa || !subject) return null;
   return new google.auth.JWT({
-    email,
-    key,
+    email: sa.client_email,
+    key: sa.private_key,
     subject,
     scopes: ['https://www.googleapis.com/auth/calendar'],
   });
