@@ -10,6 +10,8 @@ export type WebsiteAnalysis = {
   hasMetaPixel: boolean;
   wordCount: number;
   gaps: string[];
+  unverified: string[];
+  unverifiedNote?: string;
 };
 
 function normalizeUrl(input: string): string {
@@ -35,15 +37,39 @@ export async function analyzeWebsite(input: string): Promise<WebsiteAnalysis> {
   const hasMetaPixel = /fbq\(|connect\.facebook\.net\/.*\/fbevents/i.test(html);
   const wordCount = html.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
 
+  // Confirmed: markup we can actually see in the served HTML, so it is safe to
+  // state as fact.
   const gaps: string[] = [];
   if (!title) gaps.push('No <title> tag — a real SEO basic missing entirely.');
   if (!metaDescription) gaps.push('No meta description — search snippets are auto-generated and weak.');
   if (h1Count === 0) gaps.push('No H1 on the page — search engines can\'t tell what it\'s about.');
   if (h1Count > 1) gaps.push(`${h1Count} H1 tags on one page — dilutes topical relevance.`);
   if (!hasSchema) gaps.push('No structured data (schema.org) — missing rich results in search.');
-  if (!hasGA4) gaps.push('No GA4 tracking detected — can\'t measure what\'s working.');
-  if (!hasMetaPixel) gaps.push('No Meta Pixel detected — paid social can\'t retarget or optimize.');
   if (wordCount < 300) gaps.push('Thin content on this page — under 300 words of visible text.');
 
-  return { url, title, metaDescription, h1Count, hasSchema, hasGA4, hasMetaPixel, wordCount, gaps };
+  // NOT confirmed. Tracking scripts are routinely injected at runtime by tag
+  // managers or platform sandboxes (Shopify's web pixels, for one), so absence
+  // from the raw HTML proves nothing — we got this wrong on a live prospect's
+  // site by asserting a Meta Pixel was missing when it was installed.
+  // ponytail: real detection needs a headless browser; not worth it — ask instead.
+  const unverified: string[] = [];
+  if (!hasGA4) unverified.push('GA4');
+  if (!hasMetaPixel) unverified.push('Meta Pixel');
+
+  return {
+    url,
+    title,
+    metaDescription,
+    h1Count,
+    hasSchema,
+    hasGA4,
+    hasMetaPixel,
+    wordCount,
+    gaps,
+    unverified,
+    unverifiedNote:
+      unverified.length > 0
+        ? `Not found in the page source, but tag managers inject these at runtime so this is NOT proof they are missing. Ask the visitor whether ${unverified.join(' and ')} is installed — never tell them it is missing.`
+        : undefined,
+  };
 }

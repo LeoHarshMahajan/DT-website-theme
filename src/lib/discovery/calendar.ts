@@ -87,10 +87,13 @@ export async function getAvailability(): Promise<Slot[] | { error: string }> {
   }));
 
   const slots: Slot[] = [];
-  for (let d = 0; d < LOOKAHEAD_DAYS && slots.length < 6; d++) {
+  for (let d = 0; d < LOOKAHEAD_DAYS; d++) {
     const dayIst = toIstParts(now.getTime() + d * 24 * 60 * 60 * 1000);
     if (dayIst.day === 0 || dayIst.day === 6) continue; // weekends
 
+    // Every open slot for this day, so the picker can show a real day-by-day
+    // calendar. Was previously capped at 6 TOTAL, which burned the entire quota
+    // on the first weekday and made the agent claim only Monday was ever free.
     for (let hour = BUSINESS_START_HOUR_IST; hour < BUSINESS_END_HOUR_IST; hour++) {
       for (const minute of [0, 30]) {
         const start = istWallTimeToUtc(
@@ -121,9 +124,7 @@ export async function getAvailability(): Promise<Slot[] | { error: string }> {
             }),
           });
         }
-        if (slots.length >= 6) break;
       }
-      if (slots.length >= 6) break;
     }
   }
   return slots;
@@ -136,6 +137,21 @@ export async function bookCall(input: { name: string; email: string; start: stri
 
   const start = new Date(input.start);
   if (Number.isNaN(start.getTime())) return { error: 'Invalid slot — ask the visitor to pick one of the offered times.' };
+
+  // Never trust the model's timestamp. It once passed 2025-07-27 for "Monday
+  // 27 July", so the event was silently created a year in the past while the
+  // visitor was told they were booked. A slot only counts if it is genuinely
+  // open right now.
+  const open = await getAvailability();
+  if ('error' in open) return open;
+  const match = open.find((s) => s.start === start.toISOString());
+  if (!match) {
+    return {
+      error:
+        'That time is not an available slot. Re-check get_availability and offer the visitor one of the exact times it returns.',
+      available: open.slice(0, 8),
+    };
+  }
   const end = new Date(start.getTime() + SLOT_MINUTES * 60 * 1000);
 
   const event = await calendar.events.insert({

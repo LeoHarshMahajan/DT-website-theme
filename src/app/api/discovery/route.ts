@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/db/prisma';
 import { getPersona } from '@/lib/discovery/personas';
 import { analyzeWebsite } from '@/lib/discovery/analyzeWebsite';
-import { getAvailability, bookCall } from '@/lib/discovery/calendar';
+import { getAvailability, bookCall, type Slot } from '@/lib/discovery/calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -163,10 +163,16 @@ How you actually talk:
 The conversation, roughly in this order (adapt naturally, don't make it feel like a form):
 1. What are they trying to grow / what brought them here.
 2. Get their website (or social handle) and analyze it live the moment they share one — call analyze_website and turn the raw signals into 2-3 plain-English gaps a non-technical founder would actually care about.
+   - Only state the items in "gaps" as fact. Anything in "unverified" is NOT a finding — the tool cannot see scripts injected by tag managers. Never say a pixel or analytics tag is missing; ask whether it's installed, or skip it.
+   - If the visitor corrects you, believe them immediately and drop the claim. Their knowledge of their own stack beats a page-source guess.
+   - Never pad with generic advice you can't support from the analysis or what they told you. Two specific, true observations beat five vague ones.
 3. Qualify like a real sales rep would, woven into the conversation, not interrogated in a row: budget band (even a rough range is fine — "not sure yet" is a valid answer, don't push), timeline / how soon they want to start, and what's actually blocking them today.
 4. Get name, email, and phone number so the team can follow up properly. Ask for phone naturally when you're wrapping up ("what's the best number to reach you on") — never make it feel like a gate before they get value.
 5. Propose an approach tied to their specific gaps, anchored to something real Digital Triangle has done, not a generic pitch.
-6. When they're up for it, offer to book a discovery call. Call get_availability, offer 2-3 of the real returned slots conversationally (never invent times), and once they pick one, call book_call with that exact ISO start time plus their name and email. Confirm the booking back to them in plain language once it succeeds. If get_availability or book_call returns an error, don't loop on it — tell them the team will follow up within a business day instead.
+6. When they're up for it, offer to book a discovery call. Call get_availability — the visitor is shown a date/time picker with every open slot, so just say something short like "pick whatever suits you below" instead of reading times out loud. Never claim a day or date is unavailable: the picker shows the full week, and you do not know their preferred day until they choose.
+   - When they pick a slot, call book_call with the EXACT ISO start string from get_availability — copy it verbatim, never retype, reformat or reason about the date yourself. Getting the year or day wrong books a real meeting nobody attends.
+   - book_call re-checks availability and will reject a time that isn't genuinely open. If it errors, say so honestly and offer the slots it returns — never tell someone they're booked when the tool did not confirm it.
+   - Only confirm a booking after book_call succeeds. You cannot move, cancel or edit an existing booking, and you cannot change the invite email afterwards — if they ask, say the team will sort it out and take the correction down for them.
 
 Tool discipline:
 - Call save_lead every time you learn something new and worth persisting (a name, an email, a budget hint, a timeline) — not just once at the end. Partial info is fine; update it as you go. Losing the lead because you waited too long to save is the worst outcome.
@@ -177,6 +183,7 @@ Tool discipline:
   const messages: Anthropic.MessageParam[] = history.map((t) => ({ role: t.role, content: t.content }));
 
   let reply = '';
+  let slots: Slot[] = [];
   for (let i = 0; i < 4; i++) {
     const response = await anthropic.messages.create({
       model: MODEL,
@@ -199,11 +206,18 @@ Tool discipline:
 
     messages.push({ role: 'assistant', content: response.content });
     const toolResults = await Promise.all(
-      toolUses.map(async (tu) => ({
-        type: 'tool_result' as const,
-        tool_use_id: tu.id,
-        content: JSON.stringify(await runTool(tu.name, tu.input as Record<string, unknown>, conversation!.id)),
-      }))
+      toolUses.map(async (tu) => {
+        const result = await runTool(tu.name, tu.input as Record<string, unknown>, conversation!.id);
+        // Hand the real slots to the widget so the visitor picks a date/time
+        // themselves, instead of the model reading a few times out loud.
+        if (tu.name === 'get_availability' && Array.isArray(result)) slots = result;
+        if (tu.name === 'book_call' && result && typeof result === 'object' && 'booked' in result) slots = [];
+        return {
+          type: 'tool_result' as const,
+          tool_use_id: tu.id,
+          content: JSON.stringify(result),
+        };
+      })
     );
     messages.push({ role: 'user', content: toolResults });
     reply = text; // keep any interim text in case we hit the loop cap
@@ -215,5 +229,5 @@ Tool discipline:
     data: { transcript: JSON.stringify(history) },
   });
 
-  return NextResponse.json({ conversationId: conversation.id, reply });
+  return NextResponse.json({ conversationId: conversation.id, reply, slots });
 }

@@ -5,6 +5,13 @@ import { usePathname } from 'next/navigation';
 import { getPersona } from '@/lib/discovery/personas';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
+type Slot = { start: string; end: string; label: string };
+
+const IST = 'Asia/Kolkata';
+const dayKey = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-IN', { timeZone: IST, weekday: 'short', day: 'numeric', month: 'short' });
+const timeLabel = (iso: string) =>
+  new Date(iso).toLocaleTimeString('en-IN', { timeZone: IST, hour: 'numeric', minute: '2-digit', hour12: true });
 
 export function DiscoveryWidget() {
   const pathname = usePathname();
@@ -13,6 +20,8 @@ export function DiscoveryWidget() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>();
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,6 +58,15 @@ export function DiscoveryWidget() {
       }
       setConversationId(data.conversationId);
       setMsgs((m) => [...m, { role: 'assistant', content: data.reply }]);
+      setSlots(data.slots ?? []);
+      setPickedDay(null);
+    } catch {
+      // Without this the request silently vanished — the visitor's message sat
+      // there with no reply and no error, which reads as the bot ignoring them.
+      setMsgs((m) => [
+        ...m,
+        { role: 'assistant', content: "Something dropped on our end there — mind sending that again?" },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -98,6 +116,53 @@ export function DiscoveryWidget() {
                 {m.content}
               </div>
             ))}
+            {slots.length > 0 && !loading && (
+              <div style={{ border: '1px solid var(--line-strong)', borderRadius: 12, padding: 12, background: 'var(--bg-2)' }}>
+                <div style={{ fontSize: 12, color: 'var(--fg-2)', marginBottom: 8 }}>
+                  {pickedDay ? 'Pick a time (IST)' : 'Pick a day'}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {!pickedDay
+                    ? [...new Set(slots.map((s) => dayKey(s.start)))].map((day) => (
+                        <button
+                          key={day}
+                          onClick={() => setPickedDay(day)}
+                          style={{
+                            padding: '6px 10px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                            border: '1px solid var(--line-strong)', background: 'var(--bg-1)', color: 'var(--fg-1)',
+                          }}
+                        >
+                          {day}
+                        </button>
+                      ))
+                    : slots
+                        .filter((s) => dayKey(s.start) === pickedDay)
+                        .map((s) => (
+                          <button
+                            key={s.start}
+                            onClick={() => {
+                              setSlots([]);
+                              send(`Book me for ${s.label} (exact slot start: ${s.start})`);
+                            }}
+                            style={{
+                              padding: '6px 10px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                              border: 'none', background: 'var(--brand-blue)', color: '#fff', fontWeight: 600,
+                            }}
+                          >
+                            {timeLabel(s.start)}
+                          </button>
+                        ))}
+                </div>
+                {pickedDay && (
+                  <button
+                    onClick={() => setPickedDay(null)}
+                    style={{ marginTop: 8, background: 'none', border: 'none', color: 'var(--fg-2)', fontSize: 12, cursor: 'pointer', padding: 0 }}
+                  >
+                    ← other days
+                  </button>
+                )}
+              </div>
+            )}
             {loading && <div style={{ color: 'var(--fg-2)', fontSize: 13 }}>Thinking…</div>}
             <div ref={bottomRef} />
           </div>
