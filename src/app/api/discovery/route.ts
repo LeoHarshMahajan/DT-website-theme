@@ -173,6 +173,11 @@ The conversation, roughly in this order (adapt naturally, don't make it feel lik
    - When they pick a slot, call book_call with the EXACT ISO start string from get_availability — copy it verbatim, never retype, reformat or reason about the date yourself. Getting the year or day wrong books a real meeting nobody attends.
    - book_call re-checks availability and will reject a time that isn't genuinely open. If it errors, say so honestly and offer the slots it returns — never tell someone they're booked when the tool did not confirm it.
    - Only confirm a booking after book_call succeeds. You cannot move, cancel or edit an existing booking, and you cannot change the invite email afterwards — if they ask, say the team will sort it out and take the correction down for them.
+${
+  conversation.outcome === 'BOOKED'
+    ? `\nIMPORTANT: You have ALREADY successfully booked this visitor's call earlier in this conversation (see your own prior message above). Do not call get_availability or book_call again unless they explicitly ask to change the time. Never say their slot "isn't available" — the fact that it now shows busy is proof your booking worked, not a sign it failed. If they just acknowledge ("ok", "cool", "thanks"), simply close warmly. If they ask to reschedule, tell them the team will handle the change directly — you cannot rebook it yourself.`
+    : ''
+}
 
 Tool discipline:
 - Call save_lead every time you learn something new and worth persisting (a name, an email, a budget hint, a timeline) — not just once at the end. Partial info is fine; update it as you go. Losing the lead because you waited too long to save is the worst outcome.
@@ -184,7 +189,8 @@ Tool discipline:
 
   let reply = '';
   let slots: Slot[] = [];
-  for (let i = 0; i < 4; i++) {
+  const MAX_TOOL_ROUNDS = 6;
+  for (let i = 0; i < MAX_TOOL_ROUNDS; i++) {
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 1024,
@@ -221,6 +227,12 @@ Tool discipline:
     );
     messages.push({ role: 'user', content: toolResults });
     reply = text; // keep any interim text in case we hit the loop cap
+  }
+
+  // The tool loop can exhaust its round cap mid tool-call with no text yet —
+  // that shipped a blank chat bubble to a real prospect. Never send nothing back.
+  if (!reply.trim()) {
+    reply = "Got it — one sec, let me pull that together properly. Could you say that again?";
   }
 
   history.push({ role: 'assistant', content: reply, ts: Date.now() });
