@@ -11,28 +11,31 @@ const IST_OFFSET_MINUTES = 5.5 * 60;
 
 type ServiceAccount = { client_email: string; private_key: string; subject: string };
 
-// ponytail: credentials live in the DB, not the hosting env panel — Hostinger's
-// panel could not hold a multi-line PEM (kept serving a stale/corrupt value
-// through edits, .env imports and full redeploys). The DB is already a trusted
-// store on the same connection prod uses, and is writable from a dev machine,
-// so it's one less broken moving part. Env vars still win if set.
+// ponytail: the DB is the source of truth, NOT the hosting env panel —
+// Hostinger's panel could not hold a multi-line PEM (kept serving a stale,
+// corrupt value through edits, .env imports and full redeploys). DB is checked
+// FIRST on purpose: the panel still has the broken key set, and letting env win
+// silently re-broke prod even after the credential moved to the DB. Env is only
+// a fallback for a machine with no DB secret row.
 let cached: ServiceAccount | null = null;
 
 async function loadServiceAccount(): Promise<ServiceAccount | null> {
+  if (cached) return cached;
+  try {
+    const row = await prisma.appSecret.findUnique({ where: { key: 'google_calendar' } });
+    if (row) {
+      cached = JSON.parse(row.value) as ServiceAccount;
+      return cached;
+    }
+  } catch {
+    // fall through to env
+  }
+
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const key = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
   const subject = process.env.GOOGLE_CALENDAR_IMPERSONATE;
   if (email && key && subject) return { client_email: email, private_key: key, subject };
-
-  if (cached) return cached;
-  try {
-    const row = await prisma.appSecret.findUnique({ where: { key: 'google_calendar' } });
-    if (!row) return null;
-    cached = JSON.parse(row.value) as ServiceAccount;
-    return cached;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 // Returns the client plus the calendar it acts on — the impersonated mailbox
