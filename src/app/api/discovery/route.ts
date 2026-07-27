@@ -189,44 +189,52 @@ Tool discipline:
 
   let reply = '';
   let slots: Slot[] = [];
-  const MAX_TOOL_ROUNDS = 6;
-  for (let i = 0; i < MAX_TOOL_ROUNDS; i++) {
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
-      system: systemPrompt,
-      tools: TOOLS,
-      messages,
-    });
+  try {
+    const MAX_TOOL_ROUNDS = 6;
+    for (let i = 0; i < MAX_TOOL_ROUNDS; i++) {
+      const response = await anthropic.messages.create({
+        model: MODEL,
+        max_tokens: 1024,
+        system: systemPrompt,
+        tools: TOOLS,
+        messages,
+      });
 
-    const toolUses = response.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
-    const text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join('\n');
+      const toolUses = response.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
+      const text = response.content
+        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+        .map((b) => b.text)
+        .join('\n');
 
-    if (toolUses.length === 0) {
-      reply = text;
-      break;
+      if (toolUses.length === 0) {
+        reply = text;
+        break;
+      }
+
+      messages.push({ role: 'assistant', content: response.content });
+      const toolResults = await Promise.all(
+        toolUses.map(async (tu) => {
+          const result = await runTool(tu.name, tu.input as Record<string, unknown>, conversation!.id);
+          // Hand the real slots to the widget so the visitor picks a date/time
+          // themselves, instead of the model reading a few times out loud.
+          if (tu.name === 'get_availability' && Array.isArray(result)) slots = result;
+          if (tu.name === 'book_call' && result && typeof result === 'object' && 'booked' in result) slots = [];
+          return {
+            type: 'tool_result' as const,
+            tool_use_id: tu.id,
+            content: JSON.stringify(result),
+          };
+        })
+      );
+      messages.push({ role: 'user', content: toolResults });
+      reply = text; // keep any interim text in case we hit the loop cap
     }
-
-    messages.push({ role: 'assistant', content: response.content });
-    const toolResults = await Promise.all(
-      toolUses.map(async (tu) => {
-        const result = await runTool(tu.name, tu.input as Record<string, unknown>, conversation!.id);
-        // Hand the real slots to the widget so the visitor picks a date/time
-        // themselves, instead of the model reading a few times out loud.
-        if (tu.name === 'get_availability' && Array.isArray(result)) slots = result;
-        if (tu.name === 'book_call' && result && typeof result === 'object' && 'booked' in result) slots = [];
-        return {
-          type: 'tool_result' as const,
-          tool_use_id: tu.id,
-          content: JSON.stringify(result),
-        };
-      })
-    );
-    messages.push({ role: 'user', content: toolResults });
-    reply = text; // keep any interim text in case we hit the loop cap
+  } catch (err) {
+    // The Anthropic call itself failing (billing, rate limit, outage) used to
+    // crash the whole route with an empty 500 — a real visitor got total
+    // silence with no error and no fallback. Degrade instead of going dark.
+    console.error('discovery agent: Anthropic call failed', err);
+    reply = "This is taking longer than it should on our end — leave your details via the contact form and the team will follow up directly.";
   }
 
   // The tool loop can exhaust its round cap mid tool-call with no text yet —
