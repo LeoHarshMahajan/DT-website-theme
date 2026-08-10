@@ -1,6 +1,15 @@
 import OpenAI from 'openai';
 import { prisma } from '@/lib/db/prisma';
 import { BLOG_CATEGORIES } from '@/lib/constants';
+import { CASES } from '@/app/(main)/case-studies/page';
+
+// Real, already-published proof points — the actual fix for weak "usefulness"
+// and fact-check failures found in testing (the model fabricated a "Brand X,
+// 15% increase" case study when it had nothing real to cite). Reusing the
+// live case-studies page's own data, not inventing a knowledge base.
+const REAL_PROOF_POINTS = CASES.map(
+  (c) => `${c.name} (${c.industry}): ${c.headline} — ${c.metrics.map((m) => `${m.value} ${m.label}`).join(', ')}`
+).join('\n');
 
 // ponytail: research/differentiation and drafting are one OpenAI call, not
 // the spec's two separate stages — tightly coupled reasoning-then-writing,
@@ -72,7 +81,12 @@ async function draft(concept: { title: string; targetQuery: string; rationale: s
     : '';
   const result = await jsonCompletion(
     openai,
-    `You write blog articles for Digital Triangle, a growth marketing agency. Voice: direct, specific, no fluff, no AI tells ("in today's fast-paced world", "unlock the power of"), no invented statistics or client results — if you don't have a real number, describe the mechanism instead of faking a figure. Every section must include a concrete, actionable specific: an exact tactic, a step-by-step setup, a real tool/platform name, a formula, or a worked example — never a vague claim like "leverage AI" or "reveals insights" without saying exactly what to do or how it works mechanically. Write clean semantic HTML (h2/h3/p/ul/li, no h1 — the title is separate).
+    `You write blog articles for Digital Triangle, a growth marketing agency. Voice: direct, specific, no fluff, no AI tells. Banned phrases and their pattern (these exact ones and anything in the same register have failed review before — do not use them or near-variants): "in today's fast-paced world", "unlock the power of", "leverage AI", "reveals insights", "use AI to analyze", "utilize machine learning models", "use platforms like", "remember, the goal is". Instead of "use AI to analyze X", name the exact metric and threshold. Instead of "utilize machine learning models", name the actual model type or vendor feature. Every section must include a concrete, actionable specific: an exact tactic, a step-by-step setup, a real tool/platform name, a formula, or a worked example. Write clean semantic HTML (h2/h3/p/ul/li, no h1 — the title is separate).
+
+REAL client results you may cite if genuinely relevant to this topic — use these exact numbers, never alter them, never invent a client, campaign, or stat that isn't in this list:
+${REAL_PROOF_POINTS}
+
+A citation must match what that client's result actually demonstrates — do not reuse a real number for a different cause than what actually drove it (real failure caught in testing: attributing Portronics' ROAS/revenue numbers, which came from an AI creative engine + retargeting, to "dynamic pricing" — Portronics has no pricing case study, so that number cannot appear in a pricing article at all). If none of the results above were driven by the exact mechanism this article is about, cite NONE of them — write zero client examples and explain the mechanism in enough concrete detail that it doesn't need a number to feel real. Zero citations is always safer than one attached to the wrong cause.
 
 Pick the single best category slug from: ${categories}.
 
@@ -100,7 +114,11 @@ async function selfVerify(input: {
 
   const result = await jsonCompletion(
     openai,
-    `You are a strict editor reviewing a draft before it can ever reach a human for approval. Check every item honestly — if you are not sure a claim is true, that is a fact-check FAIL, not a pass. Return JSON: { "passed": boolean, "checks": [{ "name": string, "passed": boolean, "note": string }] } covering exactly these six checks: "fact-check" (no invented/unverifiable stats or claims), "originality" (not a near-duplicate of the existing titles given), "seo" (title/heading structure covers the target query), "brand-voice" (no AI-tell phrases, no fluff), "no-cannibalization" (doesn't fight an existing title for the same query), "usefulness" (a real founder would learn something, not filler). "passed" at the top level is true only if ALL six checks pass.`,
+    `You are a strict editor reviewing a draft before it can ever reach a human for approval. Check every item honestly — if you are not sure a claim is true, that is a fact-check FAIL, not a pass. Return JSON: { "passed": boolean, "checks": [{ "name": string, "passed": boolean, "note": string }] } covering exactly these six checks: "fact-check", "originality" (not a near-duplicate of the existing titles given), "seo" (title/heading structure covers the target query), "brand-voice" (no AI-tell phrases, no fluff), "no-cannibalization" (doesn't fight an existing title for the same query), "usefulness" (a real founder would learn something, not filler). "passed" at the top level is true only if ALL six checks pass.
+
+fact-check specifically: this is the ONLY list of pre-verified real Digital Triangle client results. A number/client from this exact list, cited accurately, is a PASS, not unverifiable — do not fail it for lacking a source, this IS the source:
+${REAL_PROOF_POINTS}
+Any other client name, company, or statistic NOT in that list is an invented claim and a hard FAIL, no exceptions — including real companies that aren't Digital Triangle clients (e.g. citing a well-known brand's results from general knowledge is still fabrication in this context).`,
     `Target query: ${input.targetQuery}\nExisting titles:\n${input.existingTitles.map((t) => `- ${t}`).join('\n') || '(none yet)'}\n\nDraft title: ${input.title}\nDraft content:\n${input.content}`
   );
 
@@ -116,9 +134,13 @@ export type RunResult =
   | { ok: false; error: string };
 
 // One full nightly cycle, run synchronously for the P1 manual trigger.
-// Discards after 4 failed revise attempts (each fed the prior failure's exact
+// Discards after 7 failed revise attempts (each fed the prior failure's exact
 // reasons, a real revise loop, not blind re-rolling) — a failed draft is never
-// queued, matching the spec ("you never see anything unverified").
+// queued, matching the spec ("you never see anything unverified"). 7 is a
+// judgment call from real testing: single-shot passes were rare, and each
+// revise attempt targets a genuinely different, real gap rather than
+// looping on the same complaint — worth the extra OpenAI calls to convert a
+// close draft into a queueable one instead of discarding it.
 export async function runPipeline(): Promise<RunResult> {
   const openai = getClient();
   if (!openai) return { ok: false, error: 'OPENAI_API_KEY not configured' };
@@ -134,7 +156,7 @@ export async function runPipeline(): Promise<RunResult> {
   });
 
   let feedback: string[] | undefined;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 7; attempt++) {
     const drafted = await draft(concept, feedback);
     if (!drafted) {
       await prisma.contentConcept.update({ where: { id: conceptRow.id }, data: { status: 'DISCARDED' } });
@@ -178,5 +200,5 @@ export async function runPipeline(): Promise<RunResult> {
   }
 
   await prisma.contentConcept.update({ where: { id: conceptRow.id }, data: { status: 'DISCARDED' } });
-  return { ok: true, passed: false, reason: 'Failed self-verification 4 times — discarded, nothing queued.' };
+  return { ok: true, passed: false, reason: 'Failed self-verification 7 times — discarded, nothing queued.' };
 }

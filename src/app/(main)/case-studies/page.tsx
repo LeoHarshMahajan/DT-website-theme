@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-const CASES = [
+export const CASES = [
   {
     id: 'portronics',
     num: '01',
