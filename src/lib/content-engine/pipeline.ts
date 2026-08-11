@@ -49,9 +49,19 @@ async function jsonCompletion(openai: OpenAI, system: string, user: string) {
   return JSON.parse(res.choices[0].message.content || '{}');
 }
 
-async function ideate(existingTitles: string[]): Promise<{ title: string; targetQuery: string; rationale: string; score: number } | null> {
+async function ideate(
+  existingTitles: string[],
+  steer?: { topic: string; notes: string | null }
+): Promise<{ title: string; targetQuery: string; rationale: string; score: number } | null> {
   const openai = getClient();
   if (!openai) return null;
+
+  // A steer is a direction, not a finished title — the model still shapes it
+  // into a narrow angle and a real target query, it just can't pick a
+  // different subject.
+  const steerBlock = steer
+    ? `\n\nHarsh has requested this specific topic — you MUST write about it, do not substitute your own subject:\nTopic: ${steer.topic}${steer.notes ? `\nAngle / must-cover: ${steer.notes}` : ''}\nTurn it into a narrow, concrete title and the target search query it should rank for.`
+    : '\n\nPropose the single best next topic.';
 
   const categories = BLOG_CATEGORIES.map((c) => c.label).join(', ');
   const result = await jsonCompletion(
@@ -59,7 +69,7 @@ async function ideate(existingTitles: string[]): Promise<{ title: string; target
     `You are the content strategist for Digital Triangle, a growth marketing agency (D2C, AI marketing, SEO, paid ads, retention, analytics). You pick ONE article topic per run that would genuinely help a founder and has real SEO potential for this specific agency's site. Service areas to draw from: ${categories}. Prefer a narrow, concrete how-to angle ("how to set up X for Y") over a broad trend piece ("the future of X") — narrow topics are easier to make genuinely specific and useful, which is exactly what gets rejected in review when it's missing.
 
 Return JSON: { "title": string, "targetQuery": string, "rationale": string (2-3 sentences on why this topic and why DT can write it well), "score": number 0-100 }.`,
-    `Already-published titles (do NOT repeat these or anything nearly identical):\n${existingTitles.map((t) => `- ${t}`).join('\n') || '(none yet)'}\n\nPropose the single best next topic.`
+    `Already-published titles (do NOT repeat these or anything nearly identical):\n${existingTitles.map((t) => `- ${t}`).join('\n') || '(none yet)'}${steerBlock}`
   );
 
   if (!result.title || !result.targetQuery) return null;
@@ -148,7 +158,13 @@ export async function runPipeline(): Promise<RunResult> {
   const existingPosts = await prisma.post.findMany({ select: { title: true }, orderBy: { createdAt: 'desc' }, take: 100 });
   const existingTitles = existingPosts.map((p) => p.title);
 
-  const concept = await ideate(existingTitles);
+  // Oldest requested topic first; falls back to self-ideation when empty.
+  const steer = await prisma.contentTopic.findFirst({
+    where: { status: 'PENDING' },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const concept = await ideate(existingTitles, steer ? { topic: steer.topic, notes: steer.notes } : undefined);
   if (!concept) return { ok: false, error: 'Ideation failed to produce a concept' };
 
   const conceptRow = await prisma.contentConcept.create({
@@ -190,6 +206,9 @@ export async function runPipeline(): Promise<RunResult> {
         },
       });
       await prisma.contentConcept.update({ where: { id: conceptRow.id }, data: { status: 'DRAFTED' } });
+      // Only consume the requested topic once something actually reached the
+      // queue — a discarded run must not silently burn a topic Harsh asked for.
+      if (steer) await prisma.contentTopic.update({ where: { id: steer.id }, data: { status: 'USED' } });
       return { ok: true, draftId: draftRow.id, passed: true };
     }
     feedback = qa.checks.filter((c) => !c.passed).map((c) => `${c.name}: ${c.note}`);
@@ -200,5 +219,11 @@ export async function runPipeline(): Promise<RunResult> {
   }
 
   await prisma.contentConcept.update({ where: { id: conceptRow.id }, data: { status: 'DISCARDED' } });
-  return { ok: true, passed: false, reason: 'Failed self-verification 7 times — discarded, nothing queued.' };
+  return {
+    ok: true,
+    passed: false,
+    reason: steer
+      ? `"${concept.title}" failed self-verification 7 times — discarded. Your topic "${steer.topic}" is still queued and will be retried on the next run.`
+      : 'Failed self-verification 7 times — discarded, nothing queued.',
+  };
 }

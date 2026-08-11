@@ -6,6 +6,13 @@ import { Icon } from '@/components/ui/Icon';
 import { Reveal } from '@/components/ui/Reveal';
 
 interface QaCheck { name: string; passed: boolean; note: string }
+interface ContentTopic {
+  id: string;
+  topic: string;
+  notes: string | null;
+  status: string;
+  createdAt: string;
+}
 interface ContentDraft {
   id: string;
   title: string;
@@ -42,8 +49,18 @@ export default function ContentQueuePage() {
   const [running, setRunning] = useState(false);
   const [runMessage, setRunMessage] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [topics, setTopics] = useState<ContentTopic[]>([]);
+  const [newTopic, setNewTopic] = useState('');
+  const [newNotes, setNewNotes] = useState('');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+
+  const loadTopics = () => {
+    fetch('/api/admin/content-topics')
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((d) => setTopics(d.topics ?? []))
+      .catch(() => {});
+  };
 
   const load = () => {
     setLoading(true);
@@ -52,8 +69,26 @@ export default function ContentQueuePage() {
       .then((d) => setDrafts(d.drafts ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
+    loadTopics();
   };
   useEffect(load, []);
+
+  const addTopic = async () => {
+    if (newTopic.trim().length < 3) return;
+    await fetch('/api/admin/content-topics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic: newTopic.trim(), notes: newNotes.trim() || undefined }),
+    });
+    setNewTopic('');
+    setNewNotes('');
+    loadTopics();
+  };
+
+  const removeTopic = async (id: string) => {
+    await fetch(`/api/admin/content-topics?id=${id}`, { method: 'DELETE' });
+    loadTopics();
+  };
 
   const runNow = async () => {
     setRunning(true);
@@ -84,7 +119,9 @@ export default function ContentQueuePage() {
     });
     const data = await res.json();
     if (res.ok && action === 'edit' && data.postId) {
-      window.location.href = `/admin/posts/${data.postId}`;
+      // Deep-links into the inline editor on the posts page. There is no
+      // /admin/posts/<id> route — sending them there 404'd.
+      window.location.href = `/admin/posts?edit=${data.postId}`;
       return;
     }
     setRejectingId(null);
@@ -92,6 +129,8 @@ export default function ContentQueuePage() {
     load();
   };
 
+  const pendingTopics = topics.filter((t) => t.status === 'PENDING');
+  const usedTopics = topics.filter((t) => t.status === 'USED');
   const queued = drafts.filter((d) => d.status === 'QUEUED');
   const past = drafts.filter((d) => d.status !== 'QUEUED');
 
@@ -121,6 +160,68 @@ export default function ContentQueuePage() {
           </div>
         </div>
       </Reveal>
+
+      {/* Topic direction — what you want written next */}
+      <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '14px', border: '1px solid var(--line)', padding: 20, marginBottom: 24 }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--fg-0)', margin: 0 }}>Your topics</h2>
+        <p style={{ color: 'var(--fg-3)', fontSize: '0.8rem', margin: '4px 0 14px 0' }}>
+          Each run takes the oldest topic here first. Empty list = it picks its own topic.
+        </p>
+
+        {pendingTopics.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+            {pendingTopics.map((t, idx) => (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, backgroundColor: 'var(--bg-2)' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: idx === 0 ? 'var(--brand-blue)' : 'var(--fg-3)', minWidth: 42, paddingTop: 2 }}>
+                  {idx === 0 ? 'NEXT' : `#${idx + 1}`}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, color: 'var(--fg-0)', fontSize: '0.88rem' }}>{t.topic}</p>
+                  {t.notes && <p style={{ margin: '2px 0 0 0', color: 'var(--fg-3)', fontSize: '0.78rem' }}>{t.notes}</p>}
+                </div>
+                <button onClick={() => removeTopic(t.id)} style={{ background: 'none', border: 'none', color: 'var(--fg-3)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }} title="Remove">
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <input
+            value={newTopic}
+            onChange={(e) => setNewTopic(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addTopic(); }}
+            placeholder="Topic you want covered, e.g. WhatsApp retention flows for D2C"
+            style={{ flex: '2 1 280px', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--bg-0)', color: 'var(--fg-0)', fontSize: '0.85rem' }}
+          />
+          <input
+            value={newNotes}
+            onChange={(e) => setNewNotes(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addTopic(); }}
+            placeholder="Optional angle / must-cover points"
+            style={{ flex: '1 1 200px', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--bg-0)', color: 'var(--fg-0)', fontSize: '0.85rem' }}
+          />
+          <button
+            onClick={addTopic}
+            disabled={newTopic.trim().length < 3}
+            style={{
+              padding: '9px 18px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: '0.85rem',
+              cursor: newTopic.trim().length < 3 ? 'default' : 'pointer',
+              opacity: newTopic.trim().length < 3 ? 0.5 : 1,
+              background: 'var(--brand-blue)', color: '#fff',
+            }}
+          >
+            Add
+          </button>
+        </div>
+
+        {usedTopics.length > 0 && (
+          <p style={{ color: 'var(--fg-3)', fontSize: '0.75rem', marginTop: 12, marginBottom: 0 }}>
+            Already used: {usedTopics.map((t) => t.topic).join(' · ')}
+          </p>
+        )}
+      </div>
 
       <div style={{ backgroundColor: 'var(--bg-1)', borderRadius: '14px', border: '1px solid var(--line)', overflow: 'hidden' }}>
         {loading ? (
@@ -171,11 +272,11 @@ export default function ContentQueuePage() {
                     />
 
                     <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                      <button onClick={() => act(d.id, 'approve')} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', background: 'var(--brand-blue)', color: '#fff' }}>
-                        Approve & publish
-                      </button>
-                      <button onClick={() => act(d.id, 'edit')} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--line-strong)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', background: 'transparent', color: 'var(--fg-1)' }}>
-                        Edit first
+                      {/* Single approve path: draft + open the full editor, so
+                          images/meta/cover get set in one pass. Publishing
+                          straight from here meant re-opening the post anyway. */}
+                      <button onClick={() => act(d.id, 'edit')} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', background: 'var(--brand-blue)', color: '#fff' }}>
+                        Approve → open in editor
                       </button>
                       {rejectingId === d.id ? (
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1 }}>
@@ -215,7 +316,7 @@ export default function ContentQueuePage() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {d.postId && d.status === 'APPROVED' && (
-                    <Link href={`/admin/posts/${d.postId}`} style={{ fontSize: '0.8rem', color: 'var(--brand-blue)' }}>View post →</Link>
+                    <Link href={`/admin/posts?edit=${d.postId}`} style={{ fontSize: '0.8rem', color: 'var(--brand-blue)' }}>Open in editor →</Link>
                   )}
                   <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 600,
                     backgroundColor: rgba(STATUS_COLOR[d.status], 0.15), color: STATUS_COLOR[d.status] }}>

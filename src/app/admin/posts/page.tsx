@@ -493,6 +493,23 @@ export default function AdminPostsPage() {
 
   useEffect(loadPosts, []);
 
+  // Deep link from the Content Queue: /admin/posts?edit=<id> opens that post
+  // directly in the full editor. ponytail: reads window.location instead of
+  // useSearchParams so this needs no <Suspense> boundary (that pattern has
+  // broken the build here before — see CLAUDE.md). Strips the param after use
+  // so a later reload doesn't reopen the editor unexpectedly.
+  useEffect(() => {
+    if (!posts.length) return;
+    const id = new URLSearchParams(window.location.search).get('edit');
+    if (!id) return;
+    const post = posts.find((p) => p.id === id);
+    if (post) {
+      setEditingPost(post);
+      setViewMode('edit');
+    }
+    window.history.replaceState({}, '', '/admin/posts');
+  }, [posts]);
+
   const filtered = posts.filter((p) => {
     if (filter === 'published') return p.published;
     if (filter === 'draft') return !p.published;

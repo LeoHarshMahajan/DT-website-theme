@@ -392,3 +392,16 @@ model ContentDraft {
 
   @@index([status])
 }
+
+// Topics Harsh wants covered. ideate() drains PENDING ones first (oldest
+// first) and only self-ideates when the list is empty — so the engine is
+// steerable without losing the autonomous fallback.
+model ContentTopic {
+  id        String   @id @default(cuid())
+  topic     String
+  notes     String? // optional angle / must-cover points
+  status    String   @default("PENDING") // PENDING | USED
+  createdAt DateTime @default(now())
+
+  @@index([status])
+}
