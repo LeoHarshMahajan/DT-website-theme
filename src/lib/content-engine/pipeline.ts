@@ -41,6 +41,21 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
+// Model output is rendered with dangerouslySetInnerHTML — in the admin preview
+// and, once approved, publicly on the blog. The model is told to emit semantic
+// HTML, but "we asked it nicely" is not a security control on a path that ends
+// in public HTML. Strip executable vectors at ingest.
+// ponytail: regex, not a sanitiser dep — the allowed surface here is a handful
+// of text tags we generate ourselves. Swap in DOMPurify if this ever accepts
+// HTML from anywhere other than our own prompt.
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<(iframe|object|embed|style|link|meta|form)\b[\s\S]*?(<\/\1\s*>|>)/gi, '')
+    .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '') // onclick=, onerror=, ...
+    .replace(/(href|src)\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*'|javascript:[^\s>]+)/gi, '$1="#"');
+}
+
 async function jsonCompletion(openai: OpenAI, system: string, user: string, maxTokens?: number) {
   const res = await openai.chat.completions.create({
     model: MODEL,
@@ -120,7 +135,7 @@ Return JSON: { "excerpt": string (1-2 sentences), "content": string (HTML body, 
   if (!result.content) return null;
   return {
     excerpt: String(result.excerpt || ''),
-    content: String(result.content),
+    content: sanitizeHtml(String(result.content)),
     category: BLOG_CATEGORIES.some((c) => c.slug === result.category) ? String(result.category) : null,
     whyItWillRank: String(result.whyItWillRank || ''),
   };
@@ -197,6 +212,7 @@ export async function runPipeline(): Promise<RunResult> {
   });
 
   let feedback: string[] | undefined;
+  let lastFailure = 'self-verification';
   for (let attempt = 0; attempt < 7; attempt++) {
     const drafted = await draft(concept, feedback);
     if (!drafted) {
@@ -214,6 +230,7 @@ export async function runPipeline(): Promise<RunResult> {
         `length: the draft was only ${wordCount} words. It must be at least ${MIN_WORDS} (target 600-900). Expand with more concrete detail — extra steps, a worked example, specific thresholds — not filler or restatement.`,
       ];
       console.warn(`content-engine: too short (${wordCount}w) for "${concept.title}" (attempt ${attempt + 1})`);
+      lastFailure = `the length floor (last draft was ${wordCount} words, minimum ${MIN_WORDS})`;
       continue;
     }
 
@@ -250,6 +267,7 @@ export async function runPipeline(): Promise<RunResult> {
       return { ok: true, draftId: draftRow.id, passed: true };
     }
     feedback = qa.checks.filter((c) => !c.passed).map((c) => `${c.name}: ${c.note}`);
+    lastFailure = `self-verification (${feedback.map((f) => f.split(':')[0]).join(', ') || 'unspecified'})`;
     // Log why a self-verify failure was discarded — it never reaches a human,
     // so this is the only visibility into whether the gate is well-calibrated.
     console.warn(`content-engine: QA failed for "${concept.title}" (attempt ${attempt + 1}):`, feedback);
@@ -261,7 +279,7 @@ export async function runPipeline(): Promise<RunResult> {
     ok: true,
     passed: false,
     reason: steer
-      ? `"${concept.title}" failed self-verification 7 times — discarded. Your topic "${steer.topic}" is still queued and will be retried on the next run.`
-      : 'Failed self-verification 7 times — discarded, nothing queued.',
+      ? `"${concept.title}" failed 7 times on ${lastFailure} — discarded. Your topic "${steer.topic}" is still queued and will be retried on the next run.`
+      : `"${concept.title}" failed 7 times on ${lastFailure} — discarded, nothing queued.`,
   };
 }
