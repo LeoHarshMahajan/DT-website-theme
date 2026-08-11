@@ -112,17 +112,30 @@ export default function ContentQueuePage() {
   };
 
   const act = async (id: string, action: 'approve' | 'edit' | 'reject', rejectionReason?: string) => {
-    const res = await fetch(`/api/admin/content-queue/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, rejectionReason }),
-    });
-    const data = await res.json();
-    if (res.ok && action === 'edit' && data.postId) {
-      // Deep-links into the inline editor on the posts page. There is no
-      // /admin/posts/<id> route — sending them there 404'd.
-      window.location.href = `/admin/posts?edit=${data.postId}`;
-      return;
+    setRunMessage(null);
+    try {
+      const res = await fetch(`/api/admin/content-queue/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, rejectionReason }),
+      });
+      const data = await res.json();
+      // Without this the button did nothing visible on failure — the 409
+      // "already actioned" guard was invisible, and a dropped request looked
+      // identical to success.
+      if (!res.ok) {
+        setRunMessage(data.error || `Couldn't ${action} that draft — please try again.`);
+        load();
+        return;
+      }
+      if (action === 'edit' && data.postId) {
+        // Deep-links into the inline editor on the posts page. There is no
+        // /admin/posts/<id> route — sending them there 404'd.
+        window.location.href = `/admin/posts?edit=${data.postId}`;
+        return;
+      }
+    } catch {
+      setRunMessage('Network error — that action may not have gone through. Reloading.');
     }
     setRejectingId(null);
     setRejectReason('');
