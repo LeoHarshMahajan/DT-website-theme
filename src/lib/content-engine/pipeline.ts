@@ -24,6 +24,10 @@ const REAL_PROOF_POINTS = CASES.map(
 // principle as analyzeWebsite: don't claim to have read something you didn't.
 const MODEL = 'gpt-4o';
 
+// Floor, not the target — the brief asks for 600-900. Anything under this is
+// too thin to rank and gets sent back for expansion.
+const MIN_WORDS = 550;
+
 function getClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -37,7 +41,7 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-async function jsonCompletion(openai: OpenAI, system: string, user: string) {
+async function jsonCompletion(openai: OpenAI, system: string, user: string, maxTokens?: number) {
   const res = await openai.chat.completions.create({
     model: MODEL,
     messages: [
@@ -45,6 +49,7 @@ async function jsonCompletion(openai: OpenAI, system: string, user: string) {
       { role: 'user', content: user },
     ],
     response_format: { type: 'json_object' },
+    ...(maxTokens ? { max_tokens: maxTokens } : {}),
   });
   return JSON.parse(res.choices[0].message.content || '{}');
 }
@@ -100,8 +105,16 @@ A citation must match what that client's result actually demonstrates — do not
 
 Pick the single best category slug from: ${categories}.
 
-Return JSON: { "excerpt": string (1-2 sentences), "content": string (HTML body, 600-900 words), "category": string (one slug from the list), "whyItWillRank": string (2-3 sentences on the specific gap this fills) }.`,
-    `Title: ${concept.title}\nTarget query: ${concept.targetQuery}\nWhy this topic: ${concept.rationale}${feedbackBlock}`
+REQUIRED STRUCTURE — this is not a suggestion, drafts that miss it are auto-rejected. The body must contain:
+- An opening paragraph (2-3 sentences) framing the specific problem.
+- EXACTLY 5 to 6 <h2> sections. Each <h2> section must have at least two full <p> paragraphs of 3+ sentences each, OR one paragraph plus a <ul> of 3+ substantive items (a full sentence each, not two-word fragments).
+- At least one section must walk through a worked example end to end: the starting situation, the exact steps taken, the specific settings/thresholds used, and what to look at afterwards.
+- A short closing section on how to measure whether it worked, naming the actual metrics.
+That structure lands around 700-900 words. A draft under ${MIN_WORDS} words is rejected automatically before review, so write the full thing — do not summarise or cut sections short.
+
+Return JSON: { "excerpt": string (1-2 sentences), "content": string (HTML body, 700-900 words following the structure above), "category": string (one slug from the list), "whyItWillRank": string (2-3 sentences on the specific gap this fills) }.`,
+    `Title: ${concept.title}\nTarget query: ${concept.targetQuery}\nWhy this topic: ${concept.rationale}${feedbackBlock}`,
+    3000
   );
 
   if (!result.content) return null;
@@ -124,11 +137,23 @@ async function selfVerify(input: {
 
   const result = await jsonCompletion(
     openai,
-    `You are a strict editor reviewing a draft before it can ever reach a human for approval. Check every item honestly — if you are not sure a claim is true, that is a fact-check FAIL, not a pass. Return JSON: { "passed": boolean, "checks": [{ "name": string, "passed": boolean, "note": string }] } covering exactly these six checks: "fact-check", "originality" (not a near-duplicate of the existing titles given), "seo" (title/heading structure covers the target query), "brand-voice" (no AI-tell phrases, no fluff), "no-cannibalization" (doesn't fight an existing title for the same query), "usefulness" (a real founder would learn something, not filler). "passed" at the top level is true only if ALL six checks pass.
+    `You are the final gate before a draft reaches a human editor who will still review and edit it themselves.
 
-fact-check specifically: this is the ONLY list of pre-verified real Digital Triangle client results. A number/client from this exact list, cited accurately, is a PASS, not unverifiable — do not fail it for lacking a source, this IS the source:
+YOUR JOB: decide "is this publishable as a solid draft?" — NOT "is this perfect?" and NOT "could this be better?". Every piece of writing could be deeper, more specific, or more novel; that is never grounds to fail. Fail ONLY on a concrete, nameable defect. If you cannot quote the exact offending text from the draft, it is a PASS.
+
+Return JSON: { "passed": boolean, "checks": [{ "name": string, "passed": boolean, "note": string }] } with exactly these six checks. "passed" at top level is true only if all six pass. For any FAIL, the note MUST quote the specific offending text — a note like "could be more in-depth" or "may not offer novel insights" is not a valid failure, mark it PASS instead.
+
+Pass/fail thresholds — apply these literally:
+- "fact-check": FAIL only if you can name a specific fabricated claim. See the verified-results rule below. Lacking external citations/sources is NOT a fail — this is a practitioner blog, not an academic paper.
+- "originality": compares against Digital Triangle's OWN existing titles listed below only. FAIL only if it substantially duplicates one of those. A title matching the target search query is CORRECT SEO practice, never an originality failure. Topics existing elsewhere on the internet is NOT a fail.
+- "seo": PASS if the title and at least one heading address the target query. Do not fail for hypothetical extra optimizations.
+- "brand-voice": FAIL only if you can quote an actual AI-tell/filler phrase. Ordinary plain professional prose is a PASS.
+- "no-cannibalization": FAIL only if an existing DT title listed below targets essentially the same search intent.
+- "usefulness": PASS if the draft contains at least three concrete specifics a reader could act on — a named tool, an exact metric or threshold, a formula, a step sequence, or a worked example. Count them. If there are three or more, it PASSES even if you personally find it introductory. FAIL only if it is genuinely vague throughout.
+
+fact-check detail: this is the ONLY list of pre-verified real Digital Triangle client results. A number/client from this exact list, cited accurately, is a PASS — do not fail it for lacking a source, this IS the source:
 ${REAL_PROOF_POINTS}
-Any other client name, company, or statistic NOT in that list is an invented claim and a hard FAIL, no exceptions — including real companies that aren't Digital Triangle clients (e.g. citing a well-known brand's results from general knowledge is still fabrication in this context).`,
+Any other client name, company, or statistic NOT in that list is an invented claim and a hard FAIL — including real companies that aren't Digital Triangle clients. Generic, non-attributed industry statements ("cart abandonment is a common problem") are fine and not fabrication.`,
     `Target query: ${input.targetQuery}\nExisting titles:\n${input.existingTitles.map((t) => `- ${t}`).join('\n') || '(none yet)'}\n\nDraft title: ${input.title}\nDraft content:\n${input.content}`
   );
 
@@ -177,6 +202,19 @@ export async function runPipeline(): Promise<RunResult> {
     if (!drafted) {
       await prisma.contentConcept.update({ where: { id: conceptRow.id }, data: { status: 'DISCARDED' } });
       return { ok: false, error: 'Drafting failed' };
+    }
+
+    // Deterministic length floor before spending a verify call. The model
+    // routinely returns ~370 words against a 600-900 brief, and the LLM gate
+    // never flags it because length isn't one of its six checks. Cheap code
+    // check beats asking a model to count.
+    const wordCount = drafted.content.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
+    if (wordCount < MIN_WORDS) {
+      feedback = [
+        `length: the draft was only ${wordCount} words. It must be at least ${MIN_WORDS} (target 600-900). Expand with more concrete detail — extra steps, a worked example, specific thresholds — not filler or restatement.`,
+      ];
+      console.warn(`content-engine: too short (${wordCount}w) for "${concept.title}" (attempt ${attempt + 1})`);
+      continue;
     }
 
     const qa = await selfVerify({
