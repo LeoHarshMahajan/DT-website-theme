@@ -89,12 +89,10 @@ async function jsonCompletion(openai: OpenAI, system: string, user: string, maxT
 }
 
 async function ideate(
+  openai: OpenAI,
   existingTitles: string[],
   steer?: { topic: string; notes: string | null }
 ): Promise<{ title: string; targetQuery: string; rationale: string; score: number } | null> {
-  const openai = getClient();
-  if (!openai) return null;
-
   // A steer is a direction, not a finished title — the model still shapes it
   // into a narrow angle and a real target query, it just can't pick a
   // different subject.
@@ -156,7 +154,6 @@ type Outline = {
 async function planOutline(
   openai: OpenAI,
   concept: { title: string; targetQuery: string; rationale: string },
-  links: LinkTarget[],
   feedback?: string[]
 ): Promise<Outline | null> {
   const categories = BLOG_CATEGORIES.map((c) => c.slug).join(', ');
@@ -254,14 +251,12 @@ Answer each question in 40-70 words — direct, complete, and quotable on its ow
 // Stage 3: assemble. Sections are written in parallel, then stitched in the
 // planned order so the article reads top-to-bottom as one piece.
 async function draft(
+  openai: OpenAI,
   concept: { title: string; targetQuery: string; rationale: string },
   links: LinkTarget[],
   feedback?: string[]
 ) {
-  const openai = getClient();
-  if (!openai) return null;
-
-  const outline = await planOutline(openai, concept, links, feedback);
+  const outline = await planOutline(openai, concept, feedback);
   if (!outline) return null;
 
   // Spread the internal links across the middle sections — not the opener
@@ -292,15 +287,15 @@ async function draft(
   };
 }
 
-async function selfVerify(input: {
-  title: string;
-  content: string;
-  targetQuery: string;
-  existingTitles: string[];
-}): Promise<QaReport> {
-  const openai = getClient();
-  if (!openai) return { passed: false, checks: [{ name: 'openai', passed: false, note: 'Not configured' }] };
-
+async function selfVerify(
+  openai: OpenAI,
+  input: {
+    title: string;
+    content: string;
+    targetQuery: string;
+    existingTitles: string[];
+  }
+): Promise<QaReport> {
   const result = await jsonCompletion(
     openai,
     `You are the final gate before a draft reaches a human editor who will still review and edit it themselves.
@@ -426,7 +421,7 @@ export async function runPipeline(): Promise<RunResult> {
 
   const links = await getLinkTargets();
 
-  const concept = await ideate(existingTitles, steer ? { topic: steer.topic, notes: steer.notes } : undefined);
+  const concept = await ideate(openai, existingTitles, steer ? { topic: steer.topic, notes: steer.notes } : undefined);
   if (!concept) {
     await releaseTopic();
     return { ok: false, error: 'Ideation failed to produce a concept' };
@@ -442,7 +437,7 @@ export async function runPipeline(): Promise<RunResult> {
   // verify, so a failing run costs real money — and the sectioned writer is
   // far more likely to land on the first pass anyway.
   for (let attempt = 0; attempt < 3; attempt++) {
-    const drafted = await draft(concept, links, feedback);
+    const drafted = await draft(openai, concept, links, feedback);
     if (!drafted) {
       await prisma.contentConcept.update({ where: { id: conceptRow.id }, data: { status: 'DISCARDED' } });
       await releaseTopic();
@@ -461,7 +456,7 @@ export async function runPipeline(): Promise<RunResult> {
       continue;
     }
 
-    const qa = await selfVerify({
+    const qa = await selfVerify(openai, {
       title: concept.title,
       content: drafted.content,
       targetQuery: concept.targetQuery,
