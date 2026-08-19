@@ -142,7 +142,9 @@ export default function ContentQueuePage() {
     load();
   };
 
-  const pendingTopics = topics.filter((t) => t.status === 'PENDING');
+  // CLAIMED = currently being written by a run in progress. Still shown, so a
+  // topic never appears to vanish mid-run.
+  const pendingTopics = topics.filter((t) => t.status !== 'USED');
   const usedTopics = topics.filter((t) => t.status === 'USED');
   const queued = drafts.filter((d) => d.status === 'QUEUED');
   const past = drafts.filter((d) => d.status !== 'QUEUED');
@@ -186,7 +188,7 @@ export default function ContentQueuePage() {
             {pendingTopics.map((t, idx) => (
               <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, backgroundColor: 'var(--bg-2)' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 700, color: idx === 0 ? 'var(--brand-blue)' : 'var(--fg-3)', minWidth: 42, paddingTop: 2 }}>
-                  {idx === 0 ? 'NEXT' : `#${idx + 1}`}
+                  {t.status === 'CLAIMED' ? 'WRITING' : idx === 0 ? 'NEXT' : `#${idx + 1}`}
                 </span>
                 <div style={{ flex: 1 }}>
                   <p style={{ margin: 0, color: 'var(--fg-0)', fontSize: '0.88rem' }}>{t.topic}</p>

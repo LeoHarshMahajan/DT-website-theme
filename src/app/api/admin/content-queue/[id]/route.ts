@@ -50,6 +50,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       excerpt: draft.excerpt,
       content: draft.content,
       category: draft.category,
+      coverImage: draft.coverImage,
       // Pre-fill SEO from what the engine already worked out, so the editor
       // opens populated instead of blank. Both are editable as normal.
       metaTitle: draft.title,

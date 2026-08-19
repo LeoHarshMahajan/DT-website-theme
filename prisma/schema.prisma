@@ -381,6 +381,7 @@ model ContentDraft {
   excerpt         String?
   content         String         @db.Text // HTML, same shape as Post.content
   category        String? // BLOG_CATEGORIES slug
+  coverImage      String? // AI-generated hero image (Supabase Storage URL)
   targetQuery     String
   whyItWillRank   String         @db.Text
   qaReport        String         @db.Text // JSON: { passed, checks: [{name, passed, note}] }
