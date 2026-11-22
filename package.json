@@ -2,7 +2,7 @@
   "name": "digital-triangle",
   "version": "0.1.0",
   "private": true,
-  "author": "Harsh Mahajan (HM) — Creator & Builder <team@digitaltriangle.in>",
+  "author": "Harsh Mahajan (HM) \u2014 Creator & Builder <team@digitaltriangle.in>",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build --webpack",
@@ -25,6 +25,10 @@
     "@tiptap/pm": "3.33.0",
     "@tiptap/react": "3.33.0",
     "@tiptap/starter-kit": "3.33.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "autoprefixer": "^10.4.16",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.0.1",
@@ -43,17 +47,11 @@
     "sharp": "^0.35.5",
     "tailwind-merge": "^2.2.2",
     "tailwindcss": "^4",
+    "typescript": "^5",
     "web-vitals": "^3.5.0",
     "xss": "^1.0.17",
     "zod": "^4.6.7",
     "zustand": "^4.4.7"
-  },
-  "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "typescript": "^5"
   },
   "overrides": {
     "next": {
