@@ -2,7 +2,7 @@
   "name": "digital-triangle",
   "version": "0.1.0",
   "private": true,
-  "author": "Harsh Mahajan (HM) \u2014 Creator & Builder <team@digitaltriangle.in>",
+  "author": "Harsh Mahajan (HM) — Creator & Builder <team@digitaltriangle.in>",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
@@ -40,11 +40,11 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.48.1",
-    "sanitize-html": "^2.18.2",
     "sharp": "^0.35.5",
     "tailwind-merge": "^2.2.2",
     "tailwindcss": "^4",
     "web-vitals": "^3.5.0",
+    "xss": "^1.0.17",
     "zod": "^4.6.7",
     "zustand": "^4.4.7"
   },
@@ -53,7 +53,6 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/sanitize-html": "^2.16.2",
     "typescript": "^5"
   },
   "overrides": {

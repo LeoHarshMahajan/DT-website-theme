@@ -1,47 +1,58 @@
-import sanitize from 'sanitize-html';
+import { FilterXSS, safeAttrValue, getDefaultCSSWhiteList } from 'xss';
 
 // Every HTML body that reaches a public page goes through here: editor-written
 // posts, CMS pages and AI drafts alike. Allow-list, not deny-list: a regex
 // stripper misses entity-encoded `javascript:` URLs, `data:` URLs, SVG
 // payloads and the like.
-const OPTIONS: sanitize.IOptions = {
-  allowedTags: [
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'blockquote', 'pre', 'code',
-    'ul', 'ol', 'li', 'strong', 'b', 'em', 'i', 'u', 's', 'mark', 'sub', 'sup', 'small',
-    'a', 'img', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
-    'div', 'span', 'section', 'aside', 'nav', 'details', 'summary', 'iframe',
-  ],
-  allowedAttributes: {
-    '*': ['id', 'class', 'style'],
-    a: ['href', 'title', 'target', 'rel'],
-    img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
-    iframe: ['src', 'width', 'height', 'title', 'allow', 'allowfullscreen', 'frameborder'],
-    th: ['colspan', 'rowspan', 'scope'],
-    td: ['colspan', 'rowspan'],
+//
+// Library choice: js-xss, not sanitize-html. sanitize-html >= 2.17.7 needs
+// Node >= 22.12 (ESM-only htmlparser2), and every release below that has a
+// published advisory; js-xss has no engine floor and no ESM-only deps.
+
+const GLOBAL = ['id', 'class', 'style'];
+const tags: Record<string, string[]> = {};
+for (const t of [
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'blockquote', 'pre', 'code',
+  'ul', 'ol', 'li', 'strong', 'b', 'em', 'i', 'u', 's', 'mark', 'sub', 'sup', 'small',
+  'figure', 'figcaption', 'table', 'thead', 'tbody', 'tfoot', 'tr',
+  'div', 'span', 'section', 'aside', 'nav', 'details', 'summary',
+]) tags[t] = GLOBAL;
+tags.a = [...GLOBAL, 'href', 'title', 'target', 'rel'];
+tags.img = [...GLOBAL, 'src', 'alt', 'title', 'width', 'height', 'loading'];
+tags.iframe = ['src', 'width', 'height', 'title', 'allow', 'allowfullscreen', 'frameborder'];
+tags.th = [...GLOBAL, 'colspan', 'rowspan', 'scope'];
+tags.td = [...GLOBAL, 'colspan', 'rowspan'];
+
+// Embeds only from the video hosts the editor actually uses.
+const IFRAME_HOSTS = /^https:\/\/(www\.youtube\.com|www\.youtube-nocookie\.com|player\.vimeo\.com)\//i;
+
+const css = getDefaultCSSWhiteList() as unknown as Record<string, boolean>;
+for (const k of Object.keys(css)) css[k] = false;
+Object.assign(css, { 'text-align': true, color: true, 'background-color': true });
+
+const filter = new FilterXSS({
+  whiteList: tags,
+  stripIgnoreTag: true, // drop unknown tags, keep their text
+  stripIgnoreTagBody: ['script', 'style', 'noscript'], // drop these AND their content
+  css: { whiteList: css },
+  safeAttrValue(tag, name, value, cssFilter) {
+    if (tag === 'iframe' && name === 'src') return IFRAME_HOSTS.test(value) ? value : '';
+    if (tag === 'img' && name === 'src' && !/^https?:\/\//i.test(value.trim())) return '';
+    // Default handling decodes entities first, so "jav&#x61;script:" is caught.
+    return safeAttrValue(tag, name, value, cssFilter);
   },
-  allowedSchemes: ['http', 'https', 'mailto', 'tel'],
-  allowedSchemesByTag: { img: ['http', 'https'] },
-  // Embeds only from video hosts the editor actually uses.
-  allowedIframeHostnames: ['www.youtube.com', 'www.youtube-nocookie.com', 'player.vimeo.com'],
-  allowedStyles: {
-    '*': {
-      'text-align': [/^(left|right|center|justify)$/],
-      color: [/^#[0-9a-f]{3,8}$/i, /^rgb\(/i, /^var\(--[a-z0-9-]+\)$/i],
-      'background-color': [/^#[0-9a-f]{3,8}$/i, /^rgb\(/i, /^var\(--[a-z0-9-]+\)$/i],
-    },
-  },
-  transformTags: {
-    // External links open in a new tab and can't reach window.opener.
-    a: (tagName, attribs) => {
-      const external = /^https?:\/\//i.test(attribs.href ?? '') && !/thedigitaltriangle\.com/i.test(attribs.href ?? '');
-      return {
-        tagName,
-        attribs: external ? { ...attribs, target: '_blank', rel: 'noopener noreferrer' } : attribs,
-      };
-    },
-  },
-};
+});
+
+// External links open in a new tab and can't reach window.opener.
+function hardenExternalLinks(html: string): string {
+  return html.replace(/<a\s([^>]*)>/gi, (m, attrs: string) => {
+    const href = attrs.match(/href="([^"]*)"/i)?.[1] ?? '';
+    if (!/^https?:\/\//i.test(href) || /^https?:\/\/(www\.)?thedigitaltriangle\.com/i.test(href)) return m;
+    const rest = attrs.replace(/\s*(target|rel)="[^"]*"/gi, '');
+    return `<a ${rest} target="_blank" rel="noopener noreferrer">`;
+  });
+}
 
 export function sanitizeHtml(html: string): string {
-  return sanitize(html ?? '', OPTIONS);
+  return hardenExternalLinks(filter.process(html ?? ''));
 }
