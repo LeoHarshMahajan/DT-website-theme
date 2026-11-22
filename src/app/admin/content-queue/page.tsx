@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { Reveal } from '@/components/ui/Reveal';
+import { rgba } from '@/lib/text';
 
 interface QaCheck { name: string; passed: boolean; note: string }
 interface ContentTopic {
@@ -43,15 +44,6 @@ const STATUS_COLOR: Record<string, string> = {
   APPROVED: 'var(--brand-violet)',
   REJECTED: 'var(--fg-3)',
 };
-
-function rgba(varColor: string, a: number) {
-  const map: Record<string, string> = {
-    'var(--brand-blue)': `rgba(75,107,255,${a})`,
-    'var(--brand-violet)': `rgba(139,92,246,${a})`,
-    'var(--fg-3)': `rgba(138,138,154,${a})`,
-  };
-  return map[varColor] || `rgba(138,138,154,${a})`;
-}
 
 export default function ContentQueuePage() {
   const [drafts, setDrafts] = useState<ContentDraft[]>([]);

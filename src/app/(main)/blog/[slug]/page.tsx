@@ -3,8 +3,6 @@ import { withHeadingIds, readingMinutes } from '@/lib/articleToc';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Metadata } from 'next';
-import { POST_BY_SLUG, BLOG_POSTS, type BlogPost } from '@/lib/blogPosts';
-import { BLOG_CONTENT } from '@/lib/blogContent';
 import { getPostBySlug, getRelatedPosts } from '@/lib/db/queries';
 import { CATEGORY_BY_SLUG } from '@/lib/constants';
 import { Footer } from '@/components/Footer';
@@ -30,7 +28,6 @@ const TAG_COLORS: Record<string, string> = {
   'India': '#e11d8a', 'Templates': '#f59e0b', 'Coupons': '#e11d8a',
 };
 
-// Normalised shape used by the renderer — works for both DB and static posts
 interface RenderPost {
   title: string;
   description: string;
@@ -45,107 +42,65 @@ interface RenderPost {
   content: string;       // HTML body
 }
 
+// No try/catch around the DB reads: if the database is down the right answer
+// is a 500 (retried, never cached), not a 404 that search engines would
+// treat as the page being gone.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
+  const dbPost = await getPostBySlug(slug);
+  if (!dbPost || dbPost.status !== 'PUBLISHED') return { title: 'Post Not Found' };
 
-  // Try DB first
-  try {
-    const dbPost = await getPostBySlug(slug);
-    if (dbPost && dbPost.status === 'PUBLISHED') {
-      const ogImg = dbPost.ogImage ?? dbPost.coverImage ?? null;
-      return {
-        title: `${dbPost.metaTitle ?? dbPost.title} — Digital Triangle`,
-        description: dbPost.metaDescription ?? dbPost.excerpt ?? `Read ${dbPost.title} on the Digital Triangle blog.`,
-        ...(ogImg ? {
-          openGraph: {
-            type: 'article' as const,
-            images: [{ url: ogImg }],
-            url: `${SITE_URL}/blog/${dbPost.slug}`,
-            siteName: 'Digital Triangle',
-            title: dbPost.metaTitle ?? dbPost.title,
-            description: dbPost.metaDescription ?? dbPost.excerpt ?? '',
-          },
-        } : {}),
-        ...(dbPost.canonical ? { alternates: { canonical: dbPost.canonical } } : {}),
-        robots: {
-          index: !dbPost.noindex,
-          follow: !dbPost.nofollow,
-        },
-      };
-    }
-  } catch { /* DB unavailable — fall through to static */ }
-
-  // Fallback to static
-  const post = POST_BY_SLUG[slug];
-  if (!post) return { title: 'Post Not Found' };
+  const ogImg = dbPost.ogImage ?? dbPost.coverImage ?? null;
   return {
-    title: `${post.title} — Digital Triangle`,
-    description: post.description,
+    title: `${dbPost.metaTitle ?? dbPost.title} — Digital Triangle`,
+    description: dbPost.metaDescription ?? dbPost.excerpt ?? `Read ${dbPost.title} on the Digital Triangle blog.`,
+    ...(ogImg ? {
+      openGraph: {
+        type: 'article' as const,
+        images: [{ url: ogImg }],
+        url: `${SITE_URL}/blog/${dbPost.slug}`,
+        siteName: 'Digital Triangle',
+        title: dbPost.metaTitle ?? dbPost.title,
+        description: dbPost.metaDescription ?? dbPost.excerpt ?? '',
+      },
+    } : {}),
+    ...(dbPost.canonical ? { alternates: { canonical: dbPost.canonical } } : {}),
+    robots: {
+      index: !dbPost.noindex,
+      follow: !dbPost.nofollow,
+    },
   };
 }
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
 
-  let post: RenderPost | null = null;
-  let relatedPosts: (BlogPost & { category?: string })[] = [];
+  const dbPost = await getPostBySlug(slug);
+  if (!dbPost || dbPost.status !== 'PUBLISHED') notFound();
 
-  // 1. Try DB
-  try {
-    const dbPost = await getPostBySlug(slug);
-    if (dbPost && dbPost.status === 'PUBLISHED') {
-      post = {
-        title: dbPost.title,
-        description: dbPost.excerpt ?? '',
-        slug: dbPost.slug,
-        liveUrl: `${SITE_URL}/blog/${dbPost.slug}`,
-        author: { name: dbPost.author?.name ?? 'Digital Triangle', id: dbPost.author?.id, bio: dbPost.author?.bio },
-        createdAt: (dbPost.publishedAt ?? dbPost.createdAt).toISOString(),
-        updatedAt: dbPost.updatedAt.toISOString(),
-        tags: dbPost.tags.map((t: { name: string }) => t.name),
-        category: dbPost.category ?? '',
-        coverImage: dbPost.coverImage ?? dbPost.ogImage ?? '',
-        content: dbPost.content ?? '',
-      };
+  const post: RenderPost = {
+    title: dbPost.title,
+    description: dbPost.excerpt ?? '',
+    slug: dbPost.slug,
+    liveUrl: `${SITE_URL}/blog/${dbPost.slug}`,
+    author: { name: dbPost.author?.name ?? 'Digital Triangle', id: dbPost.author?.id, bio: dbPost.author?.bio },
+    createdAt: (dbPost.publishedAt ?? dbPost.createdAt).toISOString(),
+    updatedAt: dbPost.updatedAt.toISOString(),
+    tags: dbPost.tags.map((t: { name: string }) => t.name),
+    category: dbPost.category ?? '',
+    coverImage: dbPost.coverImage ?? dbPost.ogImage ?? '',
+    content: dbPost.content ?? '',
+  };
 
-      // Related posts from DB
-      const dbRelated = await getRelatedPosts(dbPost.id, 3);
-      relatedPosts = dbRelated.map((r: any) => ({
-        id: r.id,
-        title: r.title,
-        description: r.excerpt ?? '',
-        slug: r.slug,
-        liveUrl: `${SITE_URL}/blog/${r.slug}`,
-        author: { name: r.author?.name ?? 'Digital Triangle', email: '' },
-        createdAt: (r.publishedAt ?? r.createdAt).toISOString(),
-        tags: (r.tags ?? []).map((t: { name: string }) => t.name),
-        category: r.category ?? '',
-      }));
-    }
-  } catch { /* DB unavailable */ }
-
-  // 2. Fallback to static data
-  if (!post) {
-    const staticPost = POST_BY_SLUG[slug];
-    if (!staticPost) notFound();
-
-    post = {
-      title: staticPost.title,
-      description: staticPost.description,
-      slug: staticPost.slug,
-      liveUrl: staticPost.liveUrl,
-      author: staticPost.author,
-      createdAt: staticPost.createdAt,
-      tags: staticPost.tags,
-      category: '',
-      coverImage: (staticPost as { ogImage?: string }).ogImage ?? '',
-      content: BLOG_CONTENT[slug] ?? '',
-    };
-
-    relatedPosts = BLOG_POSTS
-      .filter(p => p.slug !== slug && p.tags.some(t => staticPost.tags.includes(t)))
-      .slice(0, 3);
-  }
+  const relatedPosts = (await getRelatedPosts(dbPost.id, 3)).map((r) => ({
+    id: r.id,
+    title: r.title,
+    description: r.excerpt ?? '',
+    slug: r.slug,
+    createdAt: (r.publishedAt ?? r.createdAt).toISOString(),
+    tags: (r.tags ?? []).map((t: { name: string }) => t.name),
+    category: r.category ?? '',
+  }));
 
   const cat = post.category ? CATEGORY_BY_SLUG[post.category] : undefined;
   const accentColor = cat?.color ?? TAG_COLORS[post.tags[0]] ?? 'var(--brand-blue)';

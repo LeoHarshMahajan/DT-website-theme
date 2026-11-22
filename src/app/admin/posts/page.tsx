@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
 import { BLOG_CATEGORIES } from '@/lib/constants';
+import { slugify } from '@/lib/text';
 
 interface Post {
   id: string;
@@ -105,10 +106,6 @@ function PostForm({
       slug: !isEditing && (f.slug === '' || f.slug === slugify(f.title)) ? slugify(v) : f.slug,
     }));
   };
-
-  function slugify(s: string) {
-    return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  }
 
   const inputStyle: React.CSSProperties = {
     width: '100%',

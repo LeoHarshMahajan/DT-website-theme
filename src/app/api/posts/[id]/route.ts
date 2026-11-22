@@ -3,14 +3,11 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { guardRoles, isEditor } from '@/lib/auth/utils';
 import { prisma } from '@/lib/db/prisma';
+import { slugify } from '@/lib/text';
 
 export const dynamic = 'force-dynamic';
 
 type RouteParams = { params: Promise<{ id: string }> };
-
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}
 
 function parseTags(tags: string | string[] | undefined): string[] {
   if (tags === undefined) return [];

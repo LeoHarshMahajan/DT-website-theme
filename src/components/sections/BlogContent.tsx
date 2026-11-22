@@ -1,12 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
-import { BLOG_POSTS, type BlogPost } from '@/lib/blogPosts';
 import { CATEGORY_BY_SLUG } from '@/lib/constants';
 
-type Post = BlogPost & { externalUrl?: string; ogImage?: string; coverImage?: string; category?: string };
+type Post = {
+  id: string;
+  title: string;
+  description: string;
+  slug: string;
+  createdAt: string;
+  tags: string[];
+  author: { name: string };
+  ogImage?: string;
+  coverImage?: string;
+  category?: string;
+};
 
 const ITEMS_PER_PAGE = 9;
 
@@ -33,8 +43,6 @@ export function BlogContent() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [availableCategories, setAvailableCategories] = useState<{ slug: string; count: number }[]>([]);
-  // null = unknown, true = DB has posts, false = DB is empty → use static fallback
-  const dbHasPosts = useRef<boolean | null>(null);
   // Gates the fetch-trigger effect until the URL read below has applied —
   // otherwise it fires once with empty filters, then again once the URL
   // params land, wasting a request and flashing unfiltered content.
@@ -68,54 +76,15 @@ export function BlogContent() {
       if (!res.ok) throw new Error();
       const data = await res.json();
 
-      const isFirstUnfiltered = page === 1 && !search && !category;
-
-      // Matches a static post against the active category by whole-word overlap
-      // with the category label (word-boundary, not substring — "ai" must not
-      // match inside "email").
-      const catMatches = (p: BlogPost) => {
-        const c = CATEGORY_BY_SLUG[category];
-        if (!c) return true;
-        const labelWords = new Set(c.label.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
-        return p.tags.some((t) =>
-          t.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).some((w) => labelWords.has(w))
-        );
-      };
-
-      if (!data.posts || data.posts.length === 0) {
-        // On first unfiltered load: record that DB is empty and use static fallback
-        // On paginated/filtered loads: if DB has posts, just show empty (don't mix in static data)
-        if (isFirstUnfiltered) dbHasPosts.current = false;
-
-        if (dbHasPosts.current === false) {
-          const mock = category
-            ? BLOG_POSTS.filter(catMatches)
-            : search
-            ? BLOG_POSTS.filter((p) =>
-                p.title.toLowerCase().includes(search.toLowerCase()) ||
-                p.description.toLowerCase().includes(search.toLowerCase())
-              )
-            : BLOG_POSTS;
-          setPosts(mock.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE));
-          setTotalPages(Math.ceil(mock.length / ITEMS_PER_PAGE));
-        } else {
-          // DB has posts but this page is empty (past last page) — show nothing
-          setPosts([]);
-          setTotalPages(data.pagination?.pages ?? 1);
-        }
-      } else {
-        if (isFirstUnfiltered) dbHasPosts.current = true;
-        setPosts(data.posts);
-        setTotalPages(data.pagination?.pages ?? 1);
-      }
-
+      setPosts(data.posts ?? []);
+      setTotalPages(data.pagination?.pages ?? 1);
       if (data.availableCategories?.length) {
         setAvailableCategories(data.availableCategories);
       }
     } catch {
-      // Network error fallback — use static data, unfiltered
-      setPosts(BLOG_POSTS.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE));
-      setTotalPages(Math.ceil(BLOG_POSTS.length / ITEMS_PER_PAGE));
+      // API unreachable: show the empty state rather than stale baked-in copy.
+      setPosts([]);
+      setTotalPages(0);
     } finally {
       setIsLoading(false);
     }

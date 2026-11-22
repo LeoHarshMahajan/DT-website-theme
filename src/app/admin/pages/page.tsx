@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
+import { slugify } from '@/lib/text';
 
 interface Page {
   id: string;
@@ -27,10 +28,6 @@ interface SitePage {
 }
 
 type ViewMode = 'list' | 'edit' | 'create';
-
-function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
 
 function timeAgo(iso: string) {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);

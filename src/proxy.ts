@@ -102,7 +102,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // All paths except static assets and the redirects-map endpoint itself
-    '/((?!_next/static|_next/image|favicon\\.ico|site\\.webmanifest|api/redirects-map).*)',
+    // All paths except static assets
+    '/((?!_next/static|_next/image|favicon\\.ico|site\\.webmanifest).*)',
   ],
 };
