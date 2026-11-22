@@ -385,6 +385,8 @@ model ContentDraft {
   targetQuery     String
   whyItWillRank   String         @db.Text
   qaReport        String         @db.Text // JSON: { passed, checks: [{name, passed, note}] }
+  sources         String?        @db.Text // JSON: [{url, publisher, date, claim}] cited in the body
+  researchBrief   String?        @db.Text // JSON: {angle, gaps, questions, entities} from live research
   status          String         @default("QUEUED") // QUEUED | APPROVED | REJECTED
   rejectionReason String?
   postId          String?        @unique // set once approved/edited into a real Post
@@ -392,6 +394,22 @@ model ContentDraft {
   updatedAt       DateTime       @updatedAt
 
   @@index([status])
+}
+
+// One "Run now" execution. Runs take minutes, longer than a proxied HTTP
+// request survives, so the pipeline runs in the background and the admin page
+// polls this row. At most one RUNNING row at a time (single-flight).
+model ContentRun {
+  id         String    @id @default(cuid())
+  status     String    @default("RUNNING") // RUNNING | DONE | DISCARDED | FAILED
+  stage      String? // human-readable progress line
+  message    String?   @db.Text // outcome / failure reason
+  draftId    String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([status])
+  @@index([startedAt])
 }
 
 // Topics Harsh wants covered. ideate() drains PENDING ones first (oldest

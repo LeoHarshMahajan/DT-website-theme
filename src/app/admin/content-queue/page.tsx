@@ -26,7 +26,17 @@ interface ContentDraft {
   rejectionReason: string | null;
   postId: string | null;
   createdAt: string;
+  coverImage: string | null;
+  sources: string | null;
 }
+interface ContentRun {
+  id: string;
+  status: 'RUNNING' | 'DONE' | 'DISCARDED' | 'FAILED';
+  stage: string | null;
+  message: string | null;
+  startedAt: string;
+}
+interface Source { url: string; publisher: string; date: string; claim: string }
 
 const STATUS_COLOR: Record<string, string> = {
   QUEUED: 'var(--brand-blue)',
@@ -46,8 +56,9 @@ function rgba(varColor: string, a: number) {
 export default function ContentQueuePage() {
   const [drafts, setDrafts] = useState<ContentDraft[]>([]);
   const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState(false);
+  const [run, setRun] = useState<ContentRun | null>(null);
   const [runMessage, setRunMessage] = useState<string | null>(null);
+  const running = run?.status === 'RUNNING';
   const [expanded, setExpanded] = useState<string | null>(null);
   const [topics, setTopics] = useState<ContentTopic[]>([]);
   const [newTopic, setNewTopic] = useState('');
@@ -66,12 +77,28 @@ export default function ContentQueuePage() {
     setLoading(true);
     fetch('/api/admin/content-queue')
       .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-      .then((d) => setDrafts(d.drafts ?? []))
+      .then((d) => { setDrafts(d.drafts ?? []); setRun(d.run ?? null); })
       .catch(() => {})
       .finally(() => setLoading(false));
     loadTopics();
   };
   useEffect(load, []);
+
+  // A run takes several minutes in the background: poll until it settles,
+  // then refresh drafts + topics once.
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => {
+      fetch('/api/admin/content-queue')
+        .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+        .then((d) => {
+          setRun(d.run ?? null);
+          if (d.run?.status !== 'RUNNING') { setDrafts(d.drafts ?? []); loadTopics(); }
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(t);
+  }, [running]);
 
   const addTopic = async () => {
     if (newTopic.trim().length < 3) return;
@@ -91,23 +118,19 @@ export default function ContentQueuePage() {
   };
 
   const runNow = async () => {
-    setRunning(true);
     setRunMessage(null);
     try {
       const res = await fetch('/api/admin/content-queue', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
-        setRunMessage(`Failed: ${data.error || 'unknown error'}`);
-      } else if (data.passed === false) {
-        setRunMessage(data.reason);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setRun(data.run);
+        loadTopics();
       } else {
-        setRunMessage('New draft ready below.');
-        load();
+        setRunMessage(data.error || 'Could not start a run.');
+        load(); // e.g. 409: show the run that's already going
       }
     } catch {
-      setRunMessage('Failed: could not reach the server.');
-    } finally {
-      setRunning(false);
+      setRunMessage('Could not reach the server.');
     }
   };
 
@@ -171,7 +194,17 @@ export default function ContentQueuePage() {
             >
               {running ? 'Running…' : 'Run now'}
             </button>
-            {runMessage && <p style={{ color: 'var(--fg-2)', fontSize: '0.8rem', marginTop: '8px', maxWidth: 280 }}>{runMessage}</p>}
+            {running && (
+              <p style={{ color: 'var(--brand-blue)', fontSize: '0.8rem', marginTop: '8px', maxWidth: 300 }}>
+                {run?.stage || 'Working'}… <span style={{ color: 'var(--fg-3)' }}>(3-6 min, you can leave this page)</span>
+              </p>
+            )}
+            {!running && run?.message && (
+              <p style={{ color: run.status === 'DONE' ? 'var(--brand-blue)' : 'var(--fg-2)', fontSize: '0.8rem', marginTop: '8px', maxWidth: 300 }}>
+                Last run: {run.message}
+              </p>
+            )}
+            {runMessage && <p style={{ color: 'var(--fg-2)', fontSize: '0.8rem', marginTop: '8px', maxWidth: 300 }}>{runMessage}</p>}
           </div>
         </div>
       </Reveal>
@@ -250,6 +283,7 @@ export default function ContentQueuePage() {
         ) : (
           queued.map((d, i) => {
             const qa: { passed: boolean; checks: QaCheck[] } = JSON.parse(d.qaReport || '{"passed":false,"checks":[]}');
+            const sources: Source[] = (() => { try { return JSON.parse(d.sources || '[]'); } catch { return []; } })();
             const isOpen = expanded === d.id;
             return (
               <div key={d.id} style={{ borderBottom: i < queued.length - 1 ? '1px solid var(--line)' : 'none', padding: '20px' }}>
@@ -281,10 +315,32 @@ export default function ContentQueuePage() {
                       ))}
                     </div>
 
+                    {d.coverImage && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={d.coverImage} alt="" style={{ width: '100%', maxWidth: 480, borderRadius: 10, marginBottom: 12, display: 'block' }} />
+                    )}
+
                     <div
-                      style={{ border: '1px solid var(--line)', borderRadius: 10, padding: 16, maxHeight: 300, overflowY: 'auto', color: 'var(--fg-1)', fontSize: '0.85rem' }}
+                      style={{ border: '1px solid var(--line)', borderRadius: 10, padding: 16, maxHeight: 420, overflowY: 'auto', color: 'var(--fg-1)', fontSize: '0.85rem' }}
                       dangerouslySetInnerHTML={{ __html: d.content }}
                     />
+
+                    {sources.length > 0 && (
+                      <details style={{ marginTop: 12 }}>
+                        <summary style={{ cursor: 'pointer', color: 'var(--fg-2)', fontSize: '0.82rem', fontWeight: 600 }}>
+                          {sources.length} sources cited (each URL was checked live)
+                        </summary>
+                        <ol style={{ margin: '8px 0 0 0', paddingLeft: 20, color: 'var(--fg-2)', fontSize: '0.8rem' }}>
+                          {sources.map((s) => (
+                            <li key={s.url} style={{ marginBottom: 6 }}>
+                              <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand-blue)' }}>{s.publisher}</a>
+                              {s.date && <span style={{ color: 'var(--fg-3)' }}>, {s.date}</span>}
+                              <div style={{ color: 'var(--fg-3)' }}>{s.claim}</div>
+                            </li>
+                          ))}
+                        </ol>
+                      </details>
+                    )}
 
                     <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                       {/* Single approve path: draft + open the full editor, so

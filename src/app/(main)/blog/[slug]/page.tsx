@@ -1,4 +1,5 @@
 import { sanitizeHtml } from '@/lib/sanitize';
+import { withHeadingIds, readingMinutes } from '@/lib/articleToc';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Metadata } from 'next';
@@ -35,8 +36,9 @@ interface RenderPost {
   description: string;
   slug: string;
   liveUrl: string;
-  author: { name: string };
+  author: { name: string; id?: string; bio?: string | null };
   createdAt: string;
+  updatedAt?: string;
   tags: string[];
   category: string;      // category slug, '' if none
   coverImage: string;    // '' if none
@@ -97,8 +99,9 @@ export default async function BlogPostPage({ params }: Props) {
         description: dbPost.excerpt ?? '',
         slug: dbPost.slug,
         liveUrl: `${SITE_URL}/blog/${dbPost.slug}`,
-        author: { name: dbPost.author?.name ?? 'Digital Triangle' },
+        author: { name: dbPost.author?.name ?? 'Digital Triangle', id: dbPost.author?.id, bio: dbPost.author?.bio },
         createdAt: (dbPost.publishedAt ?? dbPost.createdAt).toISOString(),
+        updatedAt: dbPost.updatedAt.toISOString(),
         tags: dbPost.tags.map((t: { name: string }) => t.name),
         category: dbPost.category ?? '',
         coverImage: dbPost.coverImage ?? dbPost.ogImage ?? '',
@@ -148,7 +151,13 @@ export default async function BlogPostPage({ params }: Props) {
   const accentColor = cat?.color ?? TAG_COLORS[post.tags[0]] ?? 'var(--brand-blue)';
 
   const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    new Date(iso).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const { html: bodyHtml, toc } = withHeadingIds(sanitizeHtml(post.content));
+  const minutes = readingMinutes(bodyHtml);
+  // Only show "Updated" for a real revision, not the save that published it.
+  const updated = post.updatedAt && new Date(post.updatedAt).getTime() - new Date(post.createdAt).getTime() > 86_400_000
+    ? post.updatedAt : null;
 
   return (
     <>
@@ -228,7 +237,9 @@ export default async function BlogPostPage({ params }: Props) {
                   </div>
                   <div>
                     <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--fg-0)', lineHeight: 1.2 }}>
-                      {post.author.name}
+                      {post.author.id ? (
+                        <Link href={`/blog/author/${post.author.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{post.author.name}</Link>
+                      ) : post.author.name}
                     </p>
                     <p style={{ fontSize: '0.75rem', color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
                       Digital Triangle
@@ -236,9 +247,15 @@ export default async function BlogPostPage({ params }: Props) {
                   </div>
                 </div>
                 <span style={{ width: '1px', height: '28px', backgroundColor: 'var(--line)' }} />
-                <time style={{ fontSize: '0.8rem', color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
+                <time dateTime={post.createdAt} style={{ fontSize: '0.8rem', color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
                   {formatDate(post.createdAt)}
                 </time>
+                {updated && (
+                  <time dateTime={updated} style={{ fontSize: '0.8rem', color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
+                    Updated {formatDate(updated)}
+                  </time>
+                )}
+                <span style={{ fontSize: '0.8rem', color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>{minutes} min read</span>
               </div>
             </Reveal>
           </div>
@@ -275,7 +292,7 @@ export default async function BlogPostPage({ params }: Props) {
                 {/* Article body */}
                 {post.content ? (
                   <div
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
+                    dangerouslySetInnerHTML={{ __html: bodyHtml }}
                     className="article-prose"
                   />
                 ) : (
@@ -283,11 +300,43 @@ export default async function BlogPostPage({ params }: Props) {
                     Content coming soon.
                   </p>
                 )}
+
+                {/* Author box: who wrote this, for readers and for E-E-A-T */}
+                <div style={{ marginTop: 48, padding: 24, borderRadius: 16, border: '1px solid var(--line)', backgroundColor: 'var(--bg-1)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                  <div aria-hidden style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg, ${accentColor}, ${accentColor}80)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff' }}>
+                    {post.author.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', margin: 0 }}>Written by</p>
+                    <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--fg-0)', margin: '4px 0' }}>
+                      {post.author.id ? <Link href={`/blog/author/${post.author.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{post.author.name}</Link> : post.author.name}
+                    </p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--fg-2)', lineHeight: 1.6, margin: 0 }}>
+                      {post.author.bio || 'Part of the Digital Triangle growth team in Noida, working on SEO, performance marketing and AI automation for D2C and tech brands.'}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Sidebar */}
               <div style={{ position: 'sticky', top: '88px' }}>
                 <Reveal direction="up" delay={0.12}>
+
+                  {/* Table of contents */}
+                  {toc.length >= 3 && (
+                    <nav aria-label="On this page" className="post-toc" style={{ backgroundColor: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: '16px', padding: '20px 24px', marginBottom: '20px', maxHeight: '50vh', overflowY: 'auto' }}>
+                      <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', marginBottom: '12px', fontFamily: 'var(--font-mono)' }}>
+                        On this page
+                      </p>
+                      <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {toc.map((t) => (
+                          <li key={t.id}>
+                            <a href={`#${t.id}`} className="toc-link" style={{ fontSize: '0.82rem', color: 'var(--fg-2)', textDecoration: 'none', lineHeight: 1.45, display: 'block' }}>{t.text}</a>
+                          </li>
+                        ))}
+                      </ol>
+                    </nav>
+                  )}
 
                   {/* Share */}
                   <div
@@ -426,6 +475,14 @@ export default async function BlogPostPage({ params }: Props) {
         .article-prose th, .article-prose td { padding: 0.65rem 1rem; border: 1px solid var(--line-strong); text-align: left; }
         .article-prose th { background: var(--bg-2); font-weight: 600; color: var(--fg-0); }
         .article-prose td { color: var(--fg-1); }
+        .article-prose h2[id] { scroll-margin-top: 96px; }
+        .article-prose .direct-answer { font-size: 1.08rem; padding: 1rem 1.25rem; border-left: 3px solid var(--brand-blue); background: var(--bg-1); border-radius: 0 10px 10px 0; }
+        .article-prose .key-takeaways { padding: 1rem 1.25rem 0.25rem; margin: 0 0 1.5rem; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--bg-1); }
+        .article-prose .key-takeaways p { margin-bottom: 0.5rem; }
+        .article-prose .sources { font-size: 0.85rem; }
+        .article-prose figure { margin: 1.75rem 0; }
+        .toc-link:hover { color: var(--fg-0) !important; }
+        @media (max-width: 900px) { .post-toc { max-height: none !important; } }
       `}</style>
     </>
   );
