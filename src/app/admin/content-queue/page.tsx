@@ -111,7 +111,7 @@ export default function ContentQueuePage() {
     }
   };
 
-  const act = async (id: string, action: 'approve' | 'edit' | 'reject', rejectionReason?: string) => {
+  const act = async (id: string, action: 'edit' | 'reject', rejectionReason?: string) => {
     setRunMessage(null);
     try {
       const res = await fetch(`/api/admin/content-queue/${id}`, {

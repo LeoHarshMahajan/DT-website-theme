@@ -55,12 +55,14 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com",
+              // Clarity is injected by GTM; without *.clarity.ms here the CSP
+              // silently blocked it on every page.
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://*.clarity.ms",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: https: blob:",
               "frame-src https://maps.google.com https://www.google.com https://www.googletagmanager.com",
-              "connect-src 'self' https://wa.me https://www.googletagmanager.com https://tagassistant.google.com wss://tagassistant.google.com https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com https://region1.analytics.google.com https://stats.g.doubleclick.net",
+              "connect-src 'self' https://wa.me https://www.googletagmanager.com https://tagassistant.google.com wss://tagassistant.google.com https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com https://region1.analytics.google.com https://stats.g.doubleclick.net https://*.clarity.ms",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

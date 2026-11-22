@@ -1,3 +1,5 @@
+import { safeFetch, readCapped } from '@/lib/safeFetch';
+
 // Fetches a visitor's site and extracts cheap, high-signal gaps. Regex over
 // raw HTML — ponytail: no cheerio dep for a handful of tag lookups.
 export type WebsiteAnalysis = {
@@ -21,12 +23,10 @@ function normalizeUrl(input: string): string {
 
 export async function analyzeWebsite(input: string): Promise<WebsiteAnalysis> {
   const url = normalizeUrl(input);
-  const res = await fetch(url, {
-    redirect: 'follow',
-    signal: AbortSignal.timeout(8000),
+  const { res } = await safeFetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DTDiscoveryBot/1.0)' },
   });
-  const html = await res.text();
+  const html = await readCapped(res);
 
   const title = html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ?? null;
   const metaDescription =

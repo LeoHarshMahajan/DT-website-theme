@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(GENERIC_OK, { status: 200 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: 'Invalid input', errors: error.errors }, { status: 400 });
+      return NextResponse.json({ message: 'Invalid input', errors: error.issues }, { status: 400 });
     }
     return NextResponse.json({ message: 'An error occurred' }, { status: 500 });
   }

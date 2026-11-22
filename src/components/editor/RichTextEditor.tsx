@@ -3,8 +3,6 @@
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
-import Underline from '@tiptap/extension-underline';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Highlight from '@tiptap/extension-highlight';
 import TextAlign from '@tiptap/extension-text-align';
@@ -115,12 +113,18 @@ export function RichTextEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
+    // v3 default is false; the toolbar's bold/italic/heading "active" states
+    // read editor.isActive() during render, so they'd go stale without this.
+    shouldRerenderOnTransaction: true,
     extensions: [
-      StarterKit.configure({ codeBlock: false }),
+      // v3 StarterKit bundles Link + Underline; configure them here rather
+      // than registering them twice.
+      StarterKit.configure({
+        codeBlock: false,
+        link: { openOnClick: false, HTMLAttributes: { rel: 'noopener', target: '_blank' } },
+      }),
       CodeBlockLowlight.configure({ lowlight }),
       Image.configure({ allowBase64: true, HTMLAttributes: { class: 'editor-image' } }),
-      Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener', target: '_blank' } }),
-      Underline,
       Highlight.configure({ multicolor: false }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Placeholder.configure({ placeholder }),
@@ -132,7 +136,7 @@ export function RichTextEditor({
 
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value, false);
+      editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
 
@@ -204,7 +208,7 @@ export function RichTextEditor({
   const toggleSource = () => {
     if (sourceMode) {
       // Leaving source mode → apply edited HTML back to the visual editor
-      editor.commands.setContent(sourceHtml || '<p></p>', false);
+      editor.commands.setContent(sourceHtml || '<p></p>', { emitUpdate: false });
       onChange(editor.getHTML());
       setSourceMode(false);
     } else {

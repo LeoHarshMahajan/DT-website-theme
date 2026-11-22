@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
 import { refreshRedirectCacheFile } from '@/lib/redirectCache';
 import { z } from 'zod';
+import { normalizeSource, validateRedirect } from '@/lib/redirectRules';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,44 +18,11 @@ export async function GET() {
   return NextResponse.json({ redirects });
 }
 
-// Normalise a source into a same-site path.
-//  "https://thedigitaltriangle.com/blog/x?y=1#z" → "/blog/x"
-//  "blog/x" → "/blog/x"   ·   "/blog/x/" → "/blog/x"
-export function normalizeSource(raw: string): string {
-  let s = raw.trim();
-  if (!s) return s;
-  if (/^https?:\/\//i.test(s)) {
-    try { s = new URL(s).pathname; } catch { /* keep as-is */ }
-  }
-  s = s.split('#')[0].split('?')[0];
-  if (!s.startsWith('/')) s = '/' + s;
-  if (s.length > 1) s = s.replace(/\/+$/, ''); // trim trailing slash (but keep root "/")
-  return s;
-}
-
 const createSchema = z.object({
   source: z.string().min(1),
   destination: z.string().min(1),
   permanent: z.boolean().default(false),
 });
-
-const SITE_HOSTNAME = (() => {
-  try { return new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://thedigitaltriangle.com').hostname.replace(/^www\./, ''); }
-  catch { return 'thedigitaltriangle.com'; }
-})();
-
-// Whether `destination` resolves to the same path as `source` once both are
-// normalized — catches a destination written as an absolute same-site URL
-// (e.g. source "/old", destination "https://thedigitaltriangle.com/old"),
-// which a raw string comparison misses because only source gets normalized.
-function pointsAtSelf(source: string, destination: string): boolean {
-  if (!/^https?:\/\//i.test(destination)) return normalizeSource(destination) === source;
-  try {
-    const u = new URL(destination);
-    if (u.hostname.replace(/^www\./, '') !== SITE_HOSTNAME) return false; // external — can't loop
-    return normalizeSource(u.pathname) === source;
-  } catch { return false; }
-}
 
 type CreateOneResult =
   | { error: string; redirect?: undefined }
@@ -64,9 +32,8 @@ type CreateOneResult =
 async function createOne(input: { source: string; destination: string; permanent?: boolean }): Promise<CreateOneResult> {
   const source = normalizeSource(input.source);
   const destination = input.destination.trim();
-  if (!source || source === '/') return { error: 'Source path is required (e.g. /old-page)' };
-  if (!destination) return { error: 'Destination is required' };
-  if (pointsAtSelf(source, destination)) return { error: `Source and destination are identical (${source})` };
+  const invalid = await validateRedirect(source, destination);
+  if (invalid) return { error: invalid };
 
   const existing = await prisma.redirect.findUnique({ where: { source } });
   if (existing) return { error: `Redirect for ${source} already exists` };

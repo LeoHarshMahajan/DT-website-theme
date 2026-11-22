@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
+import { guardRoles, canManage } from '@/lib/auth/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,18 +10,26 @@ const patchSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-// PATCH /api/admin/users/[id] — update role / active status
+// PATCH /api/admin/users/[id] — update role / active status.
+// Rules: only ADMIN+; never on yourself; only on users strictly below you;
+// only to roles strictly below you (SUPER_ADMIN is exempt from the "below" rule).
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { user: actor, deny } = await guardRoles('SUPER_ADMIN', 'ADMIN');
+  if (deny) return deny;
 
   const { id } = await params;
-  const body = await request.json();
-  const parsed = patchSchema.safeParse(body);
+  const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+  }
+
+  if (id === actor.id) {
+    return NextResponse.json({ error: "You can't change your own role or status" }, { status: 403 });
+  }
+  const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  if (!canManage(actor.role, target.role) || (parsed.data.role && !canManage(actor.role, parsed.data.role))) {
+    return NextResponse.json({ error: 'You can only manage roles below your own' }, { status: 403 });
   }
 
   const user = await prisma.user.update({
@@ -34,20 +42,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 // DELETE /api/admin/users/[id] — remove a user
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { user: actor, deny } = await guardRoles('SUPER_ADMIN', 'ADMIN');
+  if (deny) return deny;
 
   const { id } = await params;
+  if (id === actor.id) {
+    return NextResponse.json({ error: "You can't remove yourself" }, { status: 403 });
+  }
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
-  if (target.role === 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'Cannot remove a super admin' }, { status: 403 });
+  if (target.role === 'SUPER_ADMIN' || !canManage(actor.role, target.role)) {
+    return NextResponse.json({ error: 'You can only remove users below your own role' }, { status: 403 });
   }
 
   await prisma.user.delete({ where: { id } });

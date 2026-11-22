@@ -138,9 +138,9 @@ export default function LoginPage() {
       title="Sign In"
       description="Access your Digital Triangle account"
       footerLink={{
-        text: "Don't have an account?",
-        href: '/auth/register',
-        linkText: 'Sign up',
+        text: 'Need access?',
+        href: '/contact',
+        linkText: 'Contact us',
       }}
     >
       <Suspense fallback={<div className="h-64 flex items-center justify-center text-[var(--fg-3)] text-sm">Loading...</div>}>

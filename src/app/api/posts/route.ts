@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
+import { guardRoles, isEditor } from '@/lib/auth/utils';
 import { prisma } from '@/lib/db/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,8 @@ type PostWithRelations = {
   category: string | null;
   coverImage: string | null;
   metaTitle: string | null;
+  metaDescription: string | null;
+  metaKeywords: string | null;
   ogImage: string | null;
   canonical: string | null;
   noindex: boolean;
@@ -39,6 +42,8 @@ function shape(p: PostWithRelations) {
     category: p.category ?? '',
     coverImage: p.coverImage ?? '',
     metaTitle: p.metaTitle ?? '',
+    metaDescription: p.metaDescription ?? '',
+    metaKeywords: p.metaKeywords ?? '',
     ogImage: p.ogImage ?? '',
     canonical: p.canonical ?? '',
     noindex: p.noindex ?? false,
@@ -56,17 +61,18 @@ function shape(p: PostWithRelations) {
 // GET /api/posts — authenticated: all posts; public: published only
 export async function GET(request: NextRequest) {
   const session = await auth();
+  const staff = isEditor(((session?.user as { role?: string } | undefined)?.role) ?? '');
   const { searchParams } = new URL(request.url);
 
   const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1', 10));
-  const maxLim = session?.user ? 1000 : 100;
+  const maxLim = staff ? 1000 : 100;
   const limit  = Math.min(maxLim, Math.max(1, parseInt(searchParams.get('limit') ?? '10', 10)));
   const search   = searchParams.get('search')?.trim() ?? '';
   const tag      = searchParams.get('tag')?.trim() ?? '';
   const category = searchParams.get('category')?.trim() ?? '';
   const skip     = (page - 1) * limit;
 
-  const base: Record<string, any> = session?.user ? {} : { status: 'PUBLISHED' };
+  const base: Record<string, any> = staff ? {} : { status: 'PUBLISHED' };
   const where: Record<string, any> = { ...base };
 
   if (search) {
@@ -131,6 +137,8 @@ const createPostSchema = z.object({
   category: z.string().optional(),
   coverImage: z.string().optional(),
   metaTitle: z.string().optional(),
+  metaDescription: z.string().max(400).optional(),
+  metaKeywords: z.string().max(400).optional(),
   ogImage: z.string().optional(),
   canonical: z.string().optional(),
   noindex: z.boolean().optional().default(false),
@@ -145,15 +153,13 @@ function parseTags(tags: string | string[] | undefined): string[] {
 
 // POST /api/posts — create a post
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { user: actor, deny } = await guardRoles('SUPER_ADMIN', 'ADMIN', 'EDITOR');
+  if (deny) return deny;
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
   const parsed = createPostSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid input', details: parsed.error.errors }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid input', details: parsed.error.issues }, { status: 400 });
   }
 
   const { title, description, content, published } = parsed.data;
@@ -171,6 +177,8 @@ export async function POST(request: NextRequest) {
     )
   );
 
+  // The findUnique above is a fast path; two concurrent creates can still both
+  // pass it, so the DB unique constraint is the real arbiter.
   const post = await prisma.post.create({
     data: {
       title,
@@ -179,18 +187,26 @@ export async function POST(request: NextRequest) {
       content,
       status: published ? 'PUBLISHED' : 'DRAFT',
       publishedAt: published ? new Date() : null,
-      authorId: (session.user as { id: string }).id,
+      authorId: actor.id,
       tags: { connect: tagConnect.map((t) => ({ id: t.id })) },
       category: parsed.data.category || null,
       coverImage: parsed.data.coverImage || null,
       metaTitle: parsed.data.metaTitle || null,
+      metaDescription: parsed.data.metaDescription || null,
+      metaKeywords: parsed.data.metaKeywords || null,
       ogImage: parsed.data.ogImage || null,
       canonical: parsed.data.canonical || null,
       noindex: parsed.data.noindex ?? false,
       nofollow: parsed.data.nofollow ?? false,
     },
     include: { author: { select: { name: true } }, tags: { select: { name: true } } },
+  }).catch((e: { code?: string }) => {
+    if (e?.code === 'P2002') return null;
+    throw e;
   });
+  if (!post) {
+    return NextResponse.json({ error: 'A post with that slug already exists' }, { status: 409 });
+  }
 
   return NextResponse.json({ post: shape(post) }, { status: 201 });
 }

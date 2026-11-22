@@ -6,6 +6,15 @@ import { prisma } from '@/lib/db/prisma';
 import { getPersona } from '@/lib/discovery/personas';
 import { analyzeWebsite } from '@/lib/discovery/analyzeWebsite';
 import { getAvailability, bookCall, type Slot } from '@/lib/discovery/calendar';
+import { sendLeadNotification } from '@/lib/email';
+import { rateLimit } from '@/lib/rateLimit';
+
+// The conversation id is bound to an httpOnly cookie, so knowing (or guessing)
+// another visitor's id isn't enough to read their thread or overwrite their lead.
+const CONV_COOKIE = 'dt_conv';
+// Only the most recent turns go to the model: keeps per-message cost flat in
+// long chats. Facts already captured live on the Lead, not in old turns.
+const MAX_HISTORY_TURNS = 30;
 
 export const dynamic = 'force-dynamic';
 
@@ -118,11 +127,18 @@ async function runTool(name: string, input: Record<string, unknown>, conversatio
       message: input.message ? String(input.message) : undefined,
       qualificationScore: typeof input.qualificationScore === 'number' ? input.qualificationScore : undefined,
     };
+    const existed = await prisma.lead.findUnique({ where: { conversationId }, select: { id: true } });
     const lead = await prisma.lead.upsert({
       where: { conversationId },
       create: { type: 'DISCOVERY_AGENT', source: 'discovery-agent', conversationId, ...fields },
       update: fields,
     });
+    // Chat leads used to land silently in the DB: the hottest leads on the
+    // site and nobody was told. Notify once, the first time we have one.
+    if (!existed) {
+      sendLeadNotification({ type: 'DISCOVERY_AGENT', source: 'discovery-agent', ...fields })
+        .catch((err) => console.error('[discovery] notify email failed:', err));
+    }
     return { saved: true, leadId: lead.id };
   }
   if (name === 'get_availability') {
@@ -137,6 +153,14 @@ async function runTool(name: string, input: Record<string, unknown>, conversatio
     });
     if ('booked' in result && result.booked) {
       await prisma.conversation.update({ where: { id: conversationId }, data: { outcome: 'BOOKED' } });
+      sendLeadNotification({
+        type: 'DISCOVERY_AGENT',
+        source: 'discovery-agent (call booked)',
+        name: String(input.name),
+        email: String(input.email),
+        slot: new Date(String(input.start)).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) + ' IST',
+        message: String(input.context),
+      }).catch((err) => console.error('[discovery] booking email failed:', err));
     }
     return result;
   }
@@ -152,18 +176,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const parsed = bodySchema.safeParse(await request.json());
+  // Every message is a paid model call: cap per IP.
+  const limited = rateLimit('discovery', request.headers, 40, 10 * 60_000);
+  if (limited) return limited;
+
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
   const { page, message } = parsed.data;
 
-  let conversation = parsed.data.conversationId
-    ? await prisma.conversation.findUnique({ where: { id: parsed.data.conversationId } })
+  // Resume only the conversation this browser owns; anything else starts fresh.
+  const ownedId = request.cookies.get(CONV_COOKIE)?.value;
+  const requestedId = parsed.data.conversationId;
+  let conversation = requestedId && requestedId === ownedId
+    ? await prisma.conversation.findUnique({ where: { id: requestedId } })
     : null;
 
   const { persona, opener, goal } = getPersona(page);
-  const history: Turn[] = conversation ? JSON.parse(conversation.transcript) : [];
+  let history: Turn[] = [];
+  if (conversation) {
+    try {
+      history = JSON.parse(conversation.transcript);
+    } catch {
+      console.error('discovery agent: unreadable transcript, starting fresh', conversation.id);
+      conversation = null;
+    }
+  }
   history.push({ role: 'user', content: message, ts: Date.now() });
 
   if (!conversation) {
@@ -210,7 +249,7 @@ Tool discipline:
   const openai = new OpenAI({ apiKey });
   const messages: ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },
-    ...history.map((t) => ({ role: t.role, content: t.content }) as ChatCompletionMessageParam),
+    ...history.slice(-MAX_HISTORY_TURNS).map((t) => ({ role: t.role, content: t.content }) as ChatCompletionMessageParam),
   ];
 
   let reply = '';
@@ -289,5 +328,13 @@ Tool discipline:
     data: { transcript: JSON.stringify(history) },
   });
 
-  return NextResponse.json({ conversationId: conversation.id, reply, slots });
+  const res = NextResponse.json({ conversationId: conversation.id, reply, slots });
+  res.cookies.set(CONV_COOKIE, conversation.id, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/api/discovery',
+    maxAge: 7 * 24 * 60 * 60,
+  });
+  return res;
 }

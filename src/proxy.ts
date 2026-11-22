@@ -24,6 +24,10 @@ function getRedirectMap() {
 
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'EDITOR'] as const;
 
+export function isProtectedPath(path: string) {
+  return /^\/(admin|auth|api|_next)(\/|$)/.test(path);
+}
+
 // NextAuth v5 (Auth.js) cookie names. On HTTPS the cookie is prefixed `__Secure-`.
 // getToken must be told the exact cookie name + secureCookie, otherwise it can't
 // find/decrypt the session and treats every request as unauthenticated.
@@ -46,7 +50,9 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── DB-driven redirects ────────────────────────────────────────────────────
-  const rdMap = await getRedirectMap();
+  // Never redirect app/auth/api internals — a bad rule there would lock
+  // everyone (including the admin who could fix it) out of the panel.
+  const rdMap = isProtectedPath(pathname) ? {} : await getRedirectMap();
   const rd = rdMap[pathname];
   if (rd) {
     return NextResponse.redirect(new URL(rd.destination, request.url), {
@@ -85,7 +91,8 @@ export async function proxy(request: NextRequest) {
   ) {
     const token = await readToken(request);
 
-    if (!token) {
+    // VIEWER is read-only — only editor-and-up may write posts.
+    if (!token || !ADMIN_ROLES.includes(token.role as (typeof ADMIN_ROLES)[number])) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }

@@ -18,26 +18,36 @@ interface LeadData {
   source?: string;
 }
 
-function row(label: string, value?: string | null) {
+// Every value here comes from a public form or the chat agent: escape it, or
+// a visitor can plant a real-looking link/button in the team's inbox.
+export function esc(v: string): string {
+  return v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function row(label: string, value?: string | null, rawHtml?: string) {
   if (!value) return '';
   return `
     <tr>
       <td style="padding:7px 0;color:#525260;font-size:13px;width:120px;vertical-align:top;">${label}</td>
-      <td style="padding:7px 0;color:#c8c8d4;font-size:13px;font-weight:500;">${value}</td>
+      <td style="padding:7px 0;color:#c8c8d4;font-size:13px;font-weight:500;">${rawHtml ?? esc(value)}</td>
     </tr>`;
 }
 
 function typeLabel(type?: string) {
   if (type === 'CONSULTATION') return { label: 'Consultation Request', color: '#8b5cf6' };
   if (type === 'AUDIT') return { label: 'Free Audit Request', color: '#c026d3' };
+  if (type === 'DISCOVERY_AGENT') return { label: 'Discovery Agent Lead', color: '#10b981' };
   return { label: 'Contact Form', color: '#4b6bff' };
 }
 
-export async function sendLeadNotification(lead: LeadData): Promise<void> {
+/** Resolves true once Resend accepted it, false if email isn't configured. Throws on a Resend error. */
+export async function sendLeadNotification(lead: LeadData): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) return;
+  if (!key) return false;
 
   const { label, color } = typeLabel(lead.type);
+  const name = esc(lead.name);
+  const mailto = encodeURIComponent(lead.email);
 
   const html = `<!DOCTYPE html>
 <html>
@@ -60,7 +70,7 @@ export async function sendLeadNotification(lead: LeadData): Promise<void> {
           <!-- Type badge + heading -->
           <div style="margin-bottom:20px;">
             <span style="display:inline-block;background:${color}18;border:1px solid ${color}40;color:${color};font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.08em;">${label}</span>
-            <h2 style="color:#ffffff;font-size:20px;font-weight:700;margin:10px 0 4px;">New lead from ${lead.name}</h2>
+            <h2 style="color:#ffffff;font-size:20px;font-weight:700;margin:10px 0 4px;">New lead from ${name}</h2>
             <p style="color:#525260;font-size:13px;margin:0;">${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })} IST</p>
           </div>
 
@@ -68,7 +78,7 @@ export async function sendLeadNotification(lead: LeadData): Promise<void> {
           <div style="background:#131318;border-radius:10px;border:1px solid rgba(255,255,255,0.05);padding:16px 20px;">
             <table width="100%" cellpadding="0" cellspacing="0">
               ${row('Name', lead.name)}
-              ${row('Email', `<a href="mailto:${lead.email}" style="color:#4b6bff;">${lead.email}</a>`)}
+              ${row('Email', lead.email, `<a href="mailto:${mailto}" style="color:#4b6bff;">${esc(lead.email)}</a>`)}
               ${row('Phone', lead.phone)}
               ${row('Company', lead.company)}
               ${row('Website', lead.website)}
@@ -84,12 +94,12 @@ export async function sendLeadNotification(lead: LeadData): Promise<void> {
           <!-- Message -->
           <div style="margin-top:16px;background:#131318;border-radius:10px;border:1px solid rgba(255,255,255,0.05);padding:16px 20px;">
             <p style="color:#525260;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Message</p>
-            <p style="color:#c8c8d4;font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap;">${lead.message}</p>
+            <p style="color:#c8c8d4;font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap;">${esc(lead.message)}</p>
           </div>` : ''}
 
           <!-- Reply CTA -->
           <div style="margin-top:24px;text-align:center;">
-            <a href="mailto:${lead.email}?subject=Re: Your enquiry at Digital Triangle" style="display:inline-block;background:linear-gradient(135deg,#4b6bff,#8b5cf6);color:#fff;font-weight:600;font-size:14px;padding:12px 28px;border-radius:9px;text-decoration:none;">Reply to ${lead.name} →</a>
+            <a href="mailto:${mailto}?subject=Re%3A%20Your%20enquiry%20at%20Digital%20Triangle" style="display:inline-block;background:linear-gradient(135deg,#4b6bff,#8b5cf6);color:#fff;font-weight:600;font-size:14px;padding:12px 28px;border-radius:9px;text-decoration:none;">Reply to ${name} →</a>
           </div>
 
         </td></tr>
@@ -105,7 +115,7 @@ export async function sendLeadNotification(lead: LeadData): Promise<void> {
 </body>
 </html>`;
 
-  await fetch(RESEND_URL, {
+  const res = await fetch(RESEND_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({
@@ -116,6 +126,8 @@ export async function sendLeadNotification(lead: LeadData): Promise<void> {
       html,
     }),
   });
+  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`);
+  return true;
 }
 
 export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {

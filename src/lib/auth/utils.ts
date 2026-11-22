@@ -160,6 +160,35 @@ export function isSuperAdmin(role: string): boolean {
   return role === USER_ROLES.SUPER_ADMIN;
 }
 
+// Higher number = more power. A non-super-admin can only act on users
+// strictly below them, and can only hand out roles strictly below their own.
+export const ROLE_RANK: Record<string, number> = {
+  VIEWER: 0,
+  EDITOR: 1,
+  ADMIN: 2,
+  SUPER_ADMIN: 3,
+};
+
+export function canManage(actorRole: string, targetRole: string): boolean {
+  if (actorRole === USER_ROLES.SUPER_ADMIN) return true;
+  return (ROLE_RANK[actorRole] ?? -1) > (ROLE_RANK[targetRole] ?? 99);
+}
+
+/**
+ * Route guard that reads role + isActive from the DB (not the JWT, which can
+ * be up to a session old). Returns the user, or a ready-to-return response.
+ */
+export async function guardRoles(...roles: string[]) {
+  const user = await getCurrentUser();
+  if (!user || !user.isActive) {
+    return { user: null, deny: Response.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+  if (!roles.includes(user.role)) {
+    return { user: null, deny: Response.json({ error: 'Forbidden' }, { status: 403 }) };
+  }
+  return { user, deny: null };
+}
+
 // ============================================================
 // TOKEN GENERATION (for password reset, email verification, etc.)
 // ============================================================

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
 import { sendLeadNotification } from '@/lib/email';
+import { rateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,8 @@ function toStr(v: string | string[] | undefined): string | undefined {
 
 // POST /api/leads — public lead/form capture
 export async function POST(request: NextRequest) {
+  const limited = rateLimit('leads', request.headers, 5, 10 * 60_000);
+  if (limited) return limited;
   try {
     const body = await request.json();
     const parsed = leadSchema.safeParse(body);

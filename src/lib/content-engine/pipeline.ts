@@ -1,3 +1,4 @@
+import { sanitizeHtml } from '@/lib/sanitize';
 import OpenAI from 'openai';
 import { prisma } from '@/lib/db/prisma';
 import { BLOG_CATEGORIES } from '@/lib/constants';
@@ -58,21 +59,6 @@ type QaReport = { passed: boolean; checks: QaCheck[] };
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}
-
-// Model output is rendered with dangerouslySetInnerHTML — in the admin preview
-// and, once approved, publicly on the blog. The model is told to emit semantic
-// HTML, but "we asked it nicely" is not a security control on a path that ends
-// in public HTML. Strip executable vectors at ingest.
-// ponytail: regex, not a sanitiser dep — the allowed surface here is a handful
-// of text tags we generate ourselves. Swap in DOMPurify if this ever accepts
-// HTML from anywhere other than our own prompt.
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, '')
-    .replace(/<(iframe|object|embed|style|link|meta|form)\b[\s\S]*?(<\/\1\s*>|>)/gi, '')
-    .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '') // onclick=, onerror=, ...
-    .replace(/(href|src)\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*'|javascript:[^\s>]+)/gi, '$1="#"');
 }
 
 async function jsonCompletion(openai: OpenAI, system: string, user: string, maxTokens?: number) {

@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
-import { hashPassword } from '@/lib/auth/utils';
+import { hashPassword, guardRoles, canManage } from '@/lib/auth/utils';
 import crypto from 'crypto';
+import { esc } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/admin/users — list all users
 export async function GET() {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { deny } = await guardRoles('SUPER_ADMIN', 'ADMIN');
+  if (deny) return deny;
 
   const users = await prisma.user.findMany({
     orderBy: { createdAt: 'asc' },
@@ -68,7 +66,7 @@ async function sendInviteEmail(to: string, name: string, role: string, tempPassw
 
           <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 8px;">You're invited! 🎉</h1>
           <p style="color:#8a8a9a;font-size:15px;line-height:1.6;margin:0 0 28px;">
-            Hi <strong style="color:#c8c8d4;">${name}</strong>, you've been added to the Digital Triangle admin panel as <strong style="color:#8b5cf6;">${role}</strong>.
+            Hi <strong style="color:#c8c8d4;">${esc(name)}</strong>, you've been added to the Digital Triangle admin panel as <strong style="color:#8b5cf6;">${role}</strong>.
           </p>
 
           <!-- Credentials box -->
@@ -77,7 +75,7 @@ async function sendInviteEmail(to: string, name: string, role: string, tempPassw
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td style="color:#525260;font-size:13px;padding:6px 0;">Email</td>
-                <td style="color:#c8c8d4;font-size:13px;font-weight:600;text-align:right;">${to}</td>
+                <td style="color:#c8c8d4;font-size:13px;font-weight:600;text-align:right;">${esc(to)}</td>
               </tr>
               <tr>
                 <td style="color:#525260;font-size:13px;padding:6px 0;">Temporary Password</td>
@@ -130,18 +128,19 @@ async function sendInviteEmail(to: string, name: string, role: string, tempPassw
 
 // POST /api/admin/users — invite a user
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { user: actor, deny } = await guardRoles('SUPER_ADMIN', 'ADMIN');
+  if (deny) return deny;
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
   const parsed = inviteSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
 
   const { email, role } = parsed.data;
+  if (!canManage(actor.role, role)) {
+    return NextResponse.json({ error: 'You can only invite roles below your own' }, { status: 403 });
+  }
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     return NextResponse.json({ error: 'A user with that email already exists' }, { status: 409 });

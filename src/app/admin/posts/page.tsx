@@ -17,6 +17,7 @@ interface Post {
   category?: string;
   coverImage?: string;
   metaTitle?: string;
+  metaKeywords?: string;
   ogImage?: string;
   canonical?: string;
   noindex?: boolean;
@@ -63,6 +64,7 @@ function PostForm({
     category: post?.category ?? '',
     coverImage: post?.coverImage ?? '',
     metaTitle: post?.metaTitle ?? '',
+    metaKeywords: post?.metaKeywords ?? '',
     ogImage: post?.ogImage ?? '',
     canonical: post?.canonical ?? '',
     noindex: post?.noindex ?? false,
@@ -397,6 +399,18 @@ function PostForm({
               />
             </div>
             <div>
+              <label style={labelStyle}>Focus Keywords <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(comma separated)</span></label>
+              <input
+                type="text"
+                value={form.metaKeywords}
+                onChange={(e) => set('metaKeywords', e.target.value)}
+                maxLength={400}
+                style={inputStyle}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-blue)')}
+                onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
+              />
+            </div>
+            <div>
               <label style={labelStyle}>Social Share Image (OG) <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(defaults to cover)</span></label>
               <input
                 type="url"
@@ -517,23 +531,15 @@ export default function AdminPostsPage() {
   });
 
   const handleSave = async (data: Partial<Post>) => {
-    if (editingPost) {
-      await fetch(`/api/posts/${editingPost.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-    } else {
-      const res = await fetch('/api/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        alert(d.error || 'Failed to save post.');
-        return;
-      }
+    const res = await fetch(editingPost ? `/api/posts/${editingPost.id}` : '/api/posts', {
+      method: editingPost ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).catch(() => null);
+    if (!res?.ok) {
+      const d = await res?.json().catch(() => ({}));
+      alert(d?.error || 'Failed to save post.');
+      return; // stay in the editor so nothing typed is lost
     }
     setViewMode('list');
     setEditingPost(null);
@@ -544,7 +550,8 @@ export default function AdminPostsPage() {
   const handleCreate = () => { setEditingPost(null); setViewMode('create'); };
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this post permanently?')) return;
-    await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' }).catch(() => null);
+    if (!res?.ok) alert((await res?.json().catch(() => ({})))?.error || 'Failed to delete post.');
     loadPosts();
   };
   const handleToggle = async (id: string) => {
@@ -555,7 +562,10 @@ export default function AdminPostsPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ published: !post.published }),
-    }).catch(() => loadPosts());
+    }).then((r) => { if (!r.ok) throw new Error(); }).catch(() => {
+      alert('Failed to change publish status.');
+      loadPosts(); // roll back the optimistic flip
+    });
   };
 
   if (viewMode === 'create' || viewMode === 'edit') {

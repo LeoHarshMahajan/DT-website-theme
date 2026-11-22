@@ -1,3 +1,4 @@
+import { sanitizeHtml } from '@/lib/sanitize';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Metadata } from 'next';
@@ -274,7 +275,7 @@ export default async function BlogPostPage({ params }: Props) {
                 {/* Article body */}
                 {post.content ? (
                   <div
-                    dangerouslySetInnerHTML={{ __html: post.content }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
                     className="article-prose"
                   />
                 ) : (

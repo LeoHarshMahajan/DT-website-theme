@@ -1,3 +1,4 @@
+import { sanitizeHtml } from '@/lib/sanitize';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db/prisma';
@@ -37,7 +38,7 @@ export default async function PublicPage({ params }: Props) {
         <section style={{ padding: 'clamp(48px, 7vw, 80px) 0' }}>
           <div className="shell" style={{ maxWidth: '780px' }}>
             <div
-              dangerouslySetInnerHTML={{ __html: page.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.content) }}
               className="article-prose"
             />
           </div>
