@@ -47,3 +47,6 @@ prisma/*.db-journal
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Next WASM compiler download cache (see next.config.mjs)
+/.swc-cache

@@ -1,6 +1,17 @@
 // Plain JS on purpose: Hostinger's build box has an old glibc, so Next falls
 // back to the WASM compiler, which (as of 16.4.x) cannot load a TypeScript
 // next.config.ts. An .mjs config needs no compiling at all.
+//
+// Next >= 16.3's native SWC needs glibc 2.29 (measured in a glibc 2.28
+// container: 16.2.11 loads, 16.3.8-16.4.6 fail), so Hostinger always uses the
+// WASM compiler, which Next downloads into a shared user cache. Hostinger's
+// copy there produced bogus "Module not found" errors while a fresh download
+// of the same version builds cleanly. On Linux, point Next at a cache inside
+// the build checkout so every deploy starts from a clean download.
+import path from 'node:path';
+if (process.platform === 'linux' && !process.env.NEXT_SWC_PATH) {
+  process.env.NEXT_SWC_PATH = path.join(process.cwd(), '.swc-cache');
+}
 
 /** @type {import('next').NextConfig} */
 // import { withSentryConfig } from "@sentry/nextjs"; // Optional: enable if using Sentry
