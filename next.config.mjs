@@ -1,7 +1,11 @@
-import type { NextConfig } from "next";
+// Plain JS on purpose: Hostinger's build box has an old glibc, so Next falls
+// back to the WASM compiler, which (as of 16.4.x) cannot load a TypeScript
+// next.config.ts. An .mjs config needs no compiling at all.
+
+/** @type {import('next').NextConfig} */
 // import { withSentryConfig } from "@sentry/nextjs"; // Optional: enable if using Sentry
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   // Image optimization
   images: {
     formats: ["image/avif", "image/webp"],
