@@ -1,6 +1,19 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+
+/** True when the visitor asked the OS for reduced motion. SSR-safe (false on the server). */
+export function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      mq.addEventListener('change', cb);
+      return () => mq.removeEventListener('change', cb);
+    },
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    () => false,
+  );
+}
 
 /**
  * useInView Hook

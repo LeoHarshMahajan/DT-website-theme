@@ -11,6 +11,10 @@ thedigitaltriangle.com. Built by Harsh Mahajan (HM) — Creator & Builder: keep 
 - Tailwind v4 via `@import "tailwindcss"` in `src/styles/globals.css`; there is no
   `tailwind.config`. Use the CSS variables there (`--bg-0..3`, `--fg-0..3`, `--brand-blue #4b6bff`,
   `--brand-violet #8b5cf6`, `--brand-magenta #c026d3`), never hard-coded colours.
+- Motion is CSS-first, no animation library. `<Reveal>` is a server component (content is visible
+  in the HTML); `RevealObserver` in the layout hides only below-the-fold elements and fades them in.
+  Anything JS-driven must honour reduced motion (`usePrefersReducedMotion` in `src/lib/animations.ts`).
+  Art direction for images is in `docs/visual-prompt-pack.md`; hero art is `<PageHeroArt/>`.
 - Prisma 5 + Supabase Postgres. **The local `.env` points at the SAME database as production**,
   so every local test writes live data: use `@example.invalid` emails and delete what you create.
 - NextAuth v5, JWT sessions. Roles: SUPER_ADMIN > ADMIN > EDITOR > VIEWER. Use `guardRoles` /

@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
+import { PageHeroArt } from '@/components/ui/PageHeroArt';
 import { Footer } from '@/components/Footer';
 import { buildPageMetadata } from '@/lib/seo';
 
@@ -80,6 +81,7 @@ export default function BrandCreativePage() {
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-0)', paddingTop: '64px' }}>
 
         <section className="page-hero" style={{ padding: 'clamp(72px, 11vw, 120px) 0 clamp(48px, 7vw, 80px)', borderBottom: '1px solid var(--line)' }}>
+          <PageHeroArt src="/art/solution-brand-creative.webp" />
           <div className="hero-orb-l" style={{ background: 'radial-gradient(circle, rgba(225,29,138,0.18), transparent 65%)' }} />
           <div className="hero-orb-r" style={{ background: 'radial-gradient(circle, rgba(192,38,211,0.12), transparent 65%)' }} />
           <div className="grid-bg" />

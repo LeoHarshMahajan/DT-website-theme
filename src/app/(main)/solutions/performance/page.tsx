@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
+import { PageHeroArt } from '@/components/ui/PageHeroArt';
 import { Footer } from '@/components/Footer';
 import { buildPageMetadata } from '@/lib/seo';
 
@@ -104,6 +105,7 @@ export default function PerformancePage() {
 
         {/* Hero */}
         <section className="page-hero" style={{ padding: 'clamp(72px, 11vw, 120px) 0 clamp(48px, 7vw, 80px)', borderBottom: '1px solid var(--line)' }}>
+          <PageHeroArt src="/art/solution-performance.webp" />
           <div className="hero-orb-l" style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.2), transparent 65%)' }} />
           <div className="hero-orb-r" style={{ background: 'radial-gradient(circle, rgba(192,38,211,0.14), transparent 65%)' }} />
           <div className="grid-bg" />

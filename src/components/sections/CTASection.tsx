@@ -61,7 +61,7 @@ export function CTASection() {
           >
             Book a Growth Consultation
           </Link>
-          <Link
+          <Link aria-label="Learn more about Digital Triangle"
             href="/about"
             style={{
               display: 'inline-flex', alignItems: 'center',

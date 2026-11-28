@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
 
@@ -124,14 +125,14 @@ export function Navigation() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [megaOpen, setMegaOpen]     = useState(false);
   const [mounted, setMounted]       = useState(false);
-  const [isDesktop, setIsDesktop]   = useState(true);
   const { theme, setTheme }         = useTheme();
   const menuTimeout                 = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    const check = () => setIsDesktop(window.innerWidth >= 1024);
-    check();
+    // Layout switches via CSS (.nav-desktop / .nav-mobile); JS only has to
+    // close the mobile panel if the window grows past the breakpoint.
+    const check = () => { if (window.innerWidth >= 1024) setMobileOpen(false); };
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
@@ -174,13 +175,13 @@ export function Navigation() {
               background: mounted && theme === 'light' ? '#0d0d12' : 'transparent',
               borderRadius: '8px',
             }}>
-              <img src="/logo.png" alt="Digital Triangle" style={{ height: '36px', width: 'auto', display: 'block' }} />
+              <Image src="/logo.png" alt="Digital Triangle" width={121} height={36} priority style={{ height: '36px', width: 'auto', display: 'block' }} />
             </div>
           </Link>
 
           {/* Desktop nav links */}
-          {isDesktop && (
-            <nav style={{ display: 'flex', alignItems: 'center', gap: '2px', flex: 1, justifyContent: 'center' }}>
+          {(
+            <nav aria-label="Primary" className="nav-desktop" style={{ alignItems: 'center', gap: '2px', flex: 1, justifyContent: 'center' }}>
 
               {/* Solutions mega menu */}
               <div
@@ -340,8 +341,8 @@ export function Navigation() {
           )}
 
           {/* Right actions — desktop */}
-          {isDesktop && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+          {(
+            <div className="nav-desktop" style={{ alignItems: 'center', gap: '12px', flexShrink: 0 }}>
               {mounted && (
                 <ThemeToggle theme={theme ?? 'dark'} onToggle={toggleTheme} />
               )}
@@ -361,12 +362,14 @@ export function Navigation() {
           )}
 
           {/* Mobile right */}
-          {!isDesktop && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {(
+            <div className="nav-mobile">
               {mounted && (
                 <ThemeToggle theme={theme ?? 'dark'} onToggle={toggleTheme} />
               )}
               <button
+                aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={mobileOpen}
                 onClick={(e) => { e.stopPropagation(); setMobileOpen(!mobileOpen); }}
                 style={{
                   width: '38px', height: '38px', borderRadius: '999px',
@@ -382,8 +385,8 @@ export function Navigation() {
         </div>
 
         {/* Mobile menu */}
-        {!isDesktop && mobileOpen && (
-          <div onClick={stop} style={{
+        {mobileOpen && (
+          <div onClick={stop} className="nav-mobile-panel" style={{
             position: 'fixed', inset: 0, zIndex: 200,
             background: 'var(--bg-0)',
             display: 'flex', flexDirection: 'column',
@@ -401,7 +404,7 @@ export function Navigation() {
                   background: mounted && theme === 'light' ? '#0d0d12' : 'transparent',
                   borderRadius: '7px',
                 }}>
-                  <img src="/logo.png" alt="Digital Triangle" style={{ height: '28px', width: 'auto', display: 'block' }} />
+                  <Image src="/logo.png" alt="Digital Triangle" width={94} height={28} style={{ height: '28px', width: 'auto', display: 'block' }} />
                 </div>
               </Link>
               <button

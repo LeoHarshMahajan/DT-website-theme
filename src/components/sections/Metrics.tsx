@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useInView, animateNumber, easings } from '@/lib/animations';
+import { useInView, animateNumber, easings, usePrefersReducedMotion } from '@/lib/animations';
 
 const METRICS = [
   { value: 312, suffix: '%', decimals: 0, label: 'Avg organic traffic growth', gradient: true },
@@ -19,8 +19,10 @@ function AnimatedMetric({ value, suffix, decimals, gradient }: {
 }) {
   const [display, setDisplay] = useState(0);
   const [ref, inView] = useInView({ threshold: 0.3, once: true });
+  const reduced = usePrefersReducedMotion();
 
   useEffect(() => {
+    if (reduced) { setDisplay(value); return; }
     if (!inView) return;
     const factor = decimals > 0 ? Math.pow(10, decimals) : 1;
     const cancel = animateNumber(
@@ -30,7 +32,7 @@ function AnimatedMetric({ value, suffix, decimals, gradient }: {
       (v) => setDisplay(decimals > 0 ? v / factor : v)
     );
     return cancel;
-  }, [inView, value, decimals]);
+  }, [inView, value, decimals, reduced]);
 
   return (
     <div

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { usePrefersReducedMotion } from '@/lib/animations';
 import { Reveal } from '@/components/ui/Reveal';
 
 const AI_SYSTEMS = [
@@ -158,8 +159,9 @@ const AI_SYSTEMS = [
 /* ── Typing animation hook ── */
 function useTypewriter(text: string, speed = 28, active = true) {
   const [displayed, setDisplayed] = useState('');
+  const reduced = usePrefersReducedMotion();
   useEffect(() => {
-    if (!active) { setDisplayed(text); return; }
+    if (!active || reduced) { setDisplayed(text); return; }
     setDisplayed('');
     let i = 0;
     const t = setInterval(() => {
@@ -168,15 +170,16 @@ function useTypewriter(text: string, speed = 28, active = true) {
       if (i >= text.length) clearInterval(t);
     }, speed);
     return () => clearInterval(t);
-  }, [text, active]);
+  }, [text, active, reduced]);
   return displayed;
 }
 
 /* ── Typewriter output lines ── */
 function TypewriterLines({ lines, active }: { lines: string[]; active: boolean }) {
   const [visibleCount, setVisibleCount] = useState(0);
+  const reduced = usePrefersReducedMotion();
   useEffect(() => {
-    if (!active) { setVisibleCount(lines.length); return; }
+    if (!active || reduced) { setVisibleCount(lines.length); return; }
     setVisibleCount(0);
     let i = 0;
     const t = setInterval(() => {
@@ -185,7 +188,7 @@ function TypewriterLines({ lines, active }: { lines: string[]; active: boolean }
       if (i >= lines.length) clearInterval(t);
     }, 700);
     return () => clearInterval(t);
-  }, [lines, active]);
+  }, [lines, active, reduced]);
 
   return (
     <div style={{ fontFamily: 'monospace', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -247,12 +250,13 @@ export function AISystemsPanel() {
         <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '16px', alignItems: 'start' }} className="ai-panel-grid">
 
           {/* ── Left: system list ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div role="group" aria-label="AI systems" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {AI_SYSTEMS.map(sys => {
               const isActive = sys.id === activeId;
               return (
                 <button
                   key={sys.id}
+                  aria-pressed={isActive}
                   onClick={() => select(sys.id)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '14px',

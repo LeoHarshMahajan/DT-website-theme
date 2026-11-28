@@ -19,6 +19,13 @@ const geistMono = Geist_Mono({
   weight: ["400", "500"],
 });
 
+// Holds page content back (never the nav) until the Geist weights are ready, so
+// headlines don't paint in the fallback font and then jump when Geist arrives:
+// measured on the hero, the fallback wraps to 5 lines where Geist needs 3, a
+// 0.27 layout shift. Content shows as soon as the fonts load, or after 1.2s
+// whichever is first, and is always visible with JavaScript off.
+const FONT_GATE = `(function(){var d=document,h=d.documentElement,f=d.fonts;if(!f||!f.load)return;var done=function(){h.removeAttribute('data-fonts')};h.setAttribute('data-fonts','loading');setTimeout(done,1200);d.addEventListener('DOMContentLoaded',function(){Promise.all(['400','500','600','700'].map(function(w){return f.load(w+' 1em Geist')})).then(done,done)})})();`;
+
 export const metadata: Metadata = {
   title: {
     default: SITE_NAME,
@@ -69,6 +76,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#07070a" />
         <link rel="manifest" href="/site.webmanifest" />
+        <script dangerouslySetInnerHTML={{ __html: FONT_GATE }} />
         {/* Google Tag Manager — must be in <head> for GSC ownership verification */}
         {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
         <script

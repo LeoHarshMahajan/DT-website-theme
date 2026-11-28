@@ -76,9 +76,9 @@ export function Pricing({ hideHeader }: { hideHeader?: boolean } = {}) {
 
         {/* Tab toggle */}
         <Reveal direction="up" delay={0.16}>
-          <div style={{ display: 'inline-flex', backgroundColor: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: '24px', padding: '4px', marginBottom: '40px' }}>
+          <div role="group" aria-label="Pricing type" style={{ display: 'inline-flex', backgroundColor: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: '24px', padding: '4px', marginBottom: '40px' }}>
             {(['packages', 'enterprise'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)}
+              <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}
                 style={{
                   padding: '8px 20px', borderRadius: '20px', border: 'none',
                   cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600',

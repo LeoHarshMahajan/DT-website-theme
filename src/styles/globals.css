@@ -16,8 +16,8 @@ html.dark {
 
   --fg-0: #f6f6f8;
   --fg-1: #cfd0d6;
-  --fg-2: #8b8d97;
-  --fg-3: #5a5c66;
+  --fg-2: #a3a5af;
+  --fg-3: #82848f;
   --fg-4: #3a3c44;
 
   /* Brand: electric blue → violet → magenta (from logo) */
@@ -59,8 +59,8 @@ html.light {
 
   --fg-0: #0a0a0c;
   --fg-1: #2a2a30;
-  --fg-2: #5a5c66;
-  --fg-3: #8b8d97;
+  --fg-2: #4a4c56;
+  --fg-3: #62646f;
   --fg-4: #b6b8c0;
 
   --brand-blue: #3553e5;
@@ -87,8 +87,8 @@ html.light {
     --line-strong: rgba(10, 10, 15, 0.14);
     --fg-0: #0a0a0c;
     --fg-1: #2a2a30;
-    --fg-2: #5a5c66;
-    --fg-3: #8b8d97;
+    --fg-2: #4a4c56;
+    --fg-3: #62646f;
     --fg-4: #b6b8c0;
     --brand-blue: #3553e5;
     --brand-violet: #7c3aed;
@@ -918,3 +918,136 @@ html.light .marquee {
 .stat-card:hover {
   box-shadow: 0 0 40px -10px rgba(75, 107, 255, 0.25) !important;
 }
+
+/* ══ Motion & polish ═══════════════════════════════════════════════
+   Everything below is CSS-first (no animation library). The global
+   prefers-reduced-motion rule above flattens all of it. */
+
+/* Scroll reveal: visible by default (SSR, no-JS, reduced motion).
+   <RevealObserver/> adds .rv-pre only to elements that start below the fold. */
+.rv {
+  transition:
+    opacity var(--rv-t, 0.6s) cubic-bezier(0.4, 0, 0.2, 1) var(--rv-d, 0s),
+    transform var(--rv-t, 0.6s) cubic-bezier(0.4, 0, 0.2, 1) var(--rv-d, 0s);
+}
+.rv.rv-pre { opacity: 0; }
+.rv-up.rv-pre    { transform: translateY(24px); }
+.rv-down.rv-pre  { transform: translateY(-24px); }
+.rv-left.rv-pre  { transform: translateX(24px); }
+.rv-right.rv-pre { transform: translateX(-24px); }
+
+/* Kinetic headline: words rise into place. Opacity stays 1 so the text is
+   painted on the first frame (animating from opacity 0 would delay LCP). */
+.kw {
+  display: inline-block;
+  animation: kw-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms + 60ms);
+}
+@keyframes kw-in {
+  from { transform: translateY(0.45em) rotateX(-35deg); filter: blur(8px); }
+  to   { transform: none; filter: blur(0); }
+}
+
+/* Hero: drifting gradient mesh (three radial blobs, transform only) */
+.hero-mesh { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.hero-mesh i { position: absolute; border-radius: 50%; will-change: transform; }
+.hero-mesh i:nth-child(1) {
+  width: 62vmax; height: 62vmax; left: -14vmax; top: -26vmax;
+  background: radial-gradient(closest-side, rgba(75, 107, 255, 0.42), transparent 70%);
+  animation: mesh-a 22s ease-in-out infinite alternate;
+}
+.hero-mesh i:nth-child(2) {
+  width: 56vmax; height: 56vmax; right: -16vmax; bottom: -24vmax;
+  background: radial-gradient(closest-side, rgba(192, 38, 211, 0.34), transparent 70%);
+  animation: mesh-b 26s ease-in-out infinite alternate;
+}
+.hero-mesh i:nth-child(3) {
+  width: 40vmax; height: 40vmax; left: 38%; top: 8%;
+  background: radial-gradient(closest-side, rgba(139, 92, 246, 0.26), transparent 70%);
+  animation: mesh-c 30s ease-in-out infinite alternate;
+}
+@keyframes mesh-a { to { transform: translate3d(9vmax, 7vmax, 0) scale(1.12); } }
+@keyframes mesh-b { to { transform: translate3d(-8vmax, -9vmax, 0) scale(1.08); } }
+@keyframes mesh-c { to { transform: translate3d(-10vmax, 6vmax, 0) scale(0.9); } }
+html.light .hero-mesh { opacity: 0.5; }
+
+/* Hero buttons (hover is CSS now, so the hero can be a server component) */
+.hero-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 28px; border-radius: 999px;
+  background: linear-gradient(135deg, #4b6bff, #8b5cf6);
+  color: #fff; font-weight: 600; font-size: 0.95rem; text-decoration: none;
+  box-shadow: 0 8px 30px -10px rgba(75, 107, 255, 0.65);
+  transition: box-shadow 0.3s ease, filter 0.2s ease;
+}
+.hero-cta:hover { filter: brightness(1.08); box-shadow: 0 14px 40px -8px rgba(139, 92, 246, 0.75); }
+.hero-cta-ghost {
+  display: inline-flex; align-items: center;
+  padding: 14px 28px; border-radius: 999px;
+  border: 1.5px solid var(--line-strong); background: transparent;
+  color: var(--fg-1); font-weight: 500; font-size: 0.95rem; text-decoration: none;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.hero-cta-ghost:hover { border-color: var(--brand-blue); color: var(--fg-0); }
+.magnetic { transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.3s ease, filter 0.2s ease; }
+
+/* Cursor-follow light on cards (--gx/--gy set by <PointerFx/>) */
+.card::after, [data-glow]::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  pointer-events: none; opacity: 0; transition: opacity 0.3s ease;
+  background: radial-gradient(380px circle at var(--gx, 50%) var(--gy, 50%), rgba(139, 92, 246, 0.14), transparent 62%);
+}
+[data-glow] { position: relative; }
+.card:hover::after, [data-glow]:hover::after { opacity: 1; }
+
+/* Scroll-linked touches: native CSS scroll timelines (Chrome, Edge, Safari 26+);
+   browsers without support simply skip them. */
+.scroll-progress {
+  position: fixed; inset: 0 0 auto 0; height: 2px; z-index: 300; pointer-events: none;
+  background: var(--grad-brand); transform-origin: 0 50%; transform: scaleX(0);
+}
+@supports (animation-timeline: scroll()) {
+  .scroll-progress { animation: sp-grow linear both; animation-timeline: scroll(root); }
+  @keyframes sp-grow { to { transform: scaleX(1); } }
+  .hero-parallax { animation: hero-lift linear both; animation-timeline: view(); animation-range: exit 0% exit 100%; }
+  @keyframes hero-lift { to { transform: translateY(-44px) scale(0.97); } }
+}
+
+/* Navigation: breakpoint in CSS so there's no flash of the wrong layout */
+.nav-desktop { display: none; }
+.nav-mobile { display: flex; align-items: center; gap: 10px; }
+@media (min-width: 1024px) {
+  .nav-desktop { display: flex; }
+  .nav-mobile, .nav-mobile-panel { display: none !important; }
+}
+
+/* Keyboard: skip link */
+.skip-link {
+  position: fixed; left: 12px; top: -64px; z-index: 1000;
+  padding: 10px 16px; border-radius: 10px;
+  background: var(--brand-blue); color: #fff; font-weight: 600; font-size: 0.9rem;
+  transition: top 0.2s ease;
+}
+.skip-link:focus { top: 12px; outline: 2px solid #fff; outline-offset: 2px; }
+main:focus { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress, .hero-parallax { animation: none !important; }
+  .scroll-progress { display: none; }
+  .magnetic { transition: none; }
+}
+
+/* Page hero artwork (see PageHeroArt). Dark theme only: the art sits on near-black. */
+.hero-art {
+  display: none; position: absolute; inset: 0 0 0 36%; z-index: 0; pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 42%, #000 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 42%, #000 100%);
+}
+@media (min-width: 900px) { .hero-art { display: block; } }
+html.light .hero-art { display: none; }
+
+/* Font gate (see FONT_GATE in app/layout.tsx): no paint in the fallback font, so no
+   re-wrap shift when Geist loads. Applies to the page body only, never the nav. */
+html[data-fonts="loading"] main { visibility: hidden; }
+html:not([data-fonts]) main { animation: gate-in 0.35s ease-out both; }
+@keyframes gate-in { from { opacity: 0; } }

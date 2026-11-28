@@ -57,13 +57,13 @@ export default function Home() {
           .brand-mark {
             font-size: clamp(20px, 2.4vw, 28px);
             letter-spacing: -0.025em;
-            color: var(--fg-2);
-            opacity: 0.7;
+            color: var(--fg-1);
             font-weight: 500;
             white-space: nowrap;
             transition: opacity .2s, color .2s;
           }
-          .brand-mark:hover { opacity: 1; color: var(--fg-0); }
+          .brand-mark:hover { color: var(--fg-0); }
+          .marquee-wrap { -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
           @keyframes marquee-scroll {
             from { transform: translateX(0); }
             to   { transform: translateX(-50%); }

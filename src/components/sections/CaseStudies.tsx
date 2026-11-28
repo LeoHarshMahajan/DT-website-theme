@@ -118,9 +118,9 @@ export function CaseStudies() {
         </div>
 
         {/* Tab selector */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--line)', marginBottom: '32px', gap: '0' }}>
+        <div role="group" aria-label="Case studies" style={{ display: 'flex', borderBottom: '1px solid var(--line)', marginBottom: '32px', gap: '0' }}>
           {CASES.map((c, i) => (
-            <button key={c.id} onClick={() => setActive(i)}
+            <button key={c.id} aria-pressed={i === active} onClick={() => setActive(i)}
               style={{
                 flex: 1, padding: '16px 20px', textAlign: 'left', border: 'none',
                 cursor: 'pointer', backgroundColor: 'transparent',

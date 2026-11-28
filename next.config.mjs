@@ -19,7 +19,10 @@ if (process.platform === 'linux' && !process.env.NEXT_SWC_PATH) {
 const nextConfig = {
   // Image optimization
   images: {
-    formats: ["image/avif", "image/webp"],
+    // WebP only: the sources are already small WebP, and AVIF's much slower
+    // encode would run on the shared Node host for every image after each
+    // deploy (the optimiser cache lives in .next and resets with it).
+    formats: ["image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     remotePatterns: [

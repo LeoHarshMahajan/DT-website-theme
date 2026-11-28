@@ -1,8 +1,26 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
+import { MagneticLink } from '@/components/ui/MagneticLink';
+
+/* Splits a phrase into per-word spans so the headline can rise in word by
+   word. Opacity stays 1 in the animation (see .kw), so the text paints on the
+   first frame and LCP isn't delayed. A real space sits between the
+   inline-blocks, so the line can still wrap on small screens. */
+function Words({ text, from = 0, grad = false }: { text: string; from?: number; grad?: boolean }) {
+  return (
+    <>
+      {text.split(' ').map((w, i) => (
+        <React.Fragment key={i}>
+          {i > 0 ? ' ' : ''}
+          <span className={`kw${grad ? ' grad-text' : ''}`} style={{ '--i': from + i } as React.CSSProperties}>
+            {w}
+          </span>
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
 
 /* ─────────────────────────────────────────────────────────
    WorkflowMockup — browser-window with a node-graph inside
@@ -146,15 +164,8 @@ export function HeroWorkflow() {
       {/* Grid bg */}
       <div className="grid-bg" style={{ position: 'absolute', inset: 0, zIndex: 0 }} />
 
-      {/* Glow orbs */}
-      <div className="glow-orb glow-orb-pulse" style={{
-        position: 'absolute', top: '-180px', left: '-100px',
-        background: 'rgba(75,107,255,0.5)', zIndex: 0,
-      }} />
-      <div className="glow-orb glow-orb-pulse" style={{
-        position: 'absolute', bottom: '-180px', right: '-100px',
-        background: 'rgba(192,38,211,0.45)', zIndex: 0, animationDelay: '2s',
-      }} />
+      {/* Drifting gradient mesh: three soft radial blobs, transform-only animation */}
+      <div className="hero-mesh" aria-hidden="true"><i /><i /><i /></div>
 
       <div className="shell" style={{ position: 'relative', zIndex: 1 }}>
 
@@ -176,9 +187,10 @@ export function HeroWorkflow() {
               fontWeight: 700, lineHeight: 1.08, letterSpacing: '-0.03em',
               color: 'var(--fg-0)', marginBottom: '24px',
             }}>
-              AI-powered growth<br />
-              infrastructure for{' '}
-              <span className="grad-text">modern brands.</span>
+              <Words text="AI-powered growth" />
+              <br />
+              <Words text="infrastructure for" from={2} />{' '}
+              <Words text="modern brands." from={4} grad />
             </h1>
           </Reveal>
 
@@ -198,33 +210,14 @@ export function HeroWorkflow() {
           {/* CTAs */}
           <Reveal direction="up" delay={0.26}>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '48px' }}>
-              <Link href="/contact"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '8px',
-                  padding: '14px 28px', borderRadius: '999px',
-                  background: 'linear-gradient(135deg, #4b6bff, #8b5cf6)',
-                  color: 'white', fontWeight: '600', fontSize: '0.95rem',
-                  textDecoration: 'none', transition: 'all 0.2s',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.88'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'none'; }}>
+              <MagneticLink href="/contact" className="hero-cta">
                 Book growth consultation
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                   <path d="M2 7h10M8 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-              </Link>
+              </MagneticLink>
 
-              <Link href="/solutions"
-                style={{
-                  display: 'inline-flex', alignItems: 'center',
-                  padding: '14px 28px', borderRadius: '999px',
-                  border: '1.5px solid var(--line-strong)',
-                  color: 'var(--fg-1)', fontWeight: '500', fontSize: '0.95rem',
-                  textDecoration: 'none', transition: 'all 0.2s',
-                  backgroundColor: 'transparent',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brand-blue)'; e.currentTarget.style.color = 'var(--fg-0)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--line-strong)'; e.currentTarget.style.color = 'var(--fg-1)'; }}>
+              <Link href="/solutions" className="hero-cta-ghost">
                 Explore growth systems
               </Link>
             </div>
@@ -258,9 +251,11 @@ export function HeroWorkflow() {
         </div>
 
         {/* ── Browser mockup ── */}
-        <Reveal direction="up" delay={0.42} threshold={0.05}>
-          <WorkflowMockup />
-        </Reveal>
+        <div className="hero-parallax">
+          <Reveal direction="up" delay={0.42}>
+            <WorkflowMockup />
+          </Reveal>
+        </div>
       </div>
     </section>
   );

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useTheme } from 'next-themes';
 
 const FOOTER_COLUMNS = [
@@ -160,7 +161,7 @@ export function Footer() {
                   background: mounted && theme === 'light' ? '#0d0d12' : 'transparent',
                   borderRadius: '7px',
                 }}>
-                  <img src="/logo.png" alt="Digital Triangle" style={{ height: '28px', width: 'auto', display: 'block' }} />
+                  <Image src="/logo.png" alt="Digital Triangle" width={94} height={28} style={{ height: '28px', width: 'auto', display: 'block' }} />
                 </div>
               </Link>
               <span style={{ fontSize: '0.8rem', color: 'var(--fg-3)' }}>
@@ -176,7 +177,6 @@ export function Footer() {
                   href={s.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={s.label}
                   style={{
                     width: '34px', height: '34px', borderRadius: '999px',
                     backgroundColor: 'var(--bg-2)',
@@ -198,7 +198,7 @@ export function Footer() {
                     e.currentTarget.style.backgroundColor = 'var(--bg-2)';
                   }}
                 >
-                  {s.icon}
+                  <span aria-hidden="true">{s.icon}</span><span className="sr-only">{s.label}</span>
                 </a>
               ))}
             </div>
